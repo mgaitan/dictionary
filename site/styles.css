@@ -284,6 +284,69 @@ label {
     line-height: 1.55;
 }
 
+.gloss-note,
+.gloss-label,
+.gloss-grammar,
+.gloss-marker {
+    display: inline-block;
+    margin-right: 0.28rem;
+    padding: 0.04rem 0.42rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.gloss-note {
+    background: rgba(110, 93, 71, 0.12);
+    color: #5f4e3b;
+}
+
+.gloss-label {
+    background: rgba(34, 110, 93, 0.14);
+    color: #1c6656;
+}
+
+.gloss-grammar {
+    background: rgba(159, 63, 25, 0.12);
+    color: #8e3a18;
+    font-weight: 600;
+}
+
+.gloss-marker {
+    background: rgba(46, 83, 142, 0.12);
+    color: #30507f;
+    font-weight: 600;
+}
+
+.pagination {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+    justify-content: center;
+    padding-top: 0.5rem;
+}
+
+.page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+    min-height: 2.5rem;
+    padding: 0.55rem 0.8rem;
+    border: 1px solid rgba(74, 55, 25, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 251, 243, 0.92);
+    color: var(--text);
+    text-decoration: none;
+}
+
+.page-link.current {
+    border-color: rgba(159, 63, 25, 0.4);
+    background: var(--accent-soft);
+    color: #6d2a10;
+    font-weight: 700;
+}
+
 .empty-state {
     padding: 1.75rem 1rem;
     border: 1px dashed rgba(74, 55, 25, 0.24);

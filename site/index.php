@@ -4,9 +4,12 @@ declare(strict_types=1);
 $databasePath = __DIR__ . '/data/dictionary.sqlite';
 $query = trim((string) ($_GET['q'] ?? ''));
 $normalizedQuery = normalize_for_search($query);
-$limit = 50;
+$page = max(1, (int) ($_GET['page'] ?? 1));
+$limit = 25;
 $error = null;
 $results = [];
+$totalResults = 0;
+$totalPages = 0;
 $stats = [
     'entries' => 0,
     'senses' => 0,
@@ -21,7 +24,14 @@ if (!is_file($databasePath)) {
         $stats = load_stats($db);
 
         if ($normalizedQuery !== '') {
-            $results = search_entries($db, $query, $normalizedQuery, $limit);
+            $search = search_entries($db, $query, $normalizedQuery, $limit, $page);
+            $totalResults = $search['total'];
+            $totalPages = max(1, (int) ceil($totalResults / $limit));
+            $page = min($page, $totalPages);
+            if ($search['page'] !== $page) {
+                $search = search_entries($db, $query, $normalizedQuery, $limit, $page);
+            }
+            $results = $search['entries'];
         }
     } catch (Throwable $exception) {
         $error = $exception->getMessage();
@@ -79,10 +89,31 @@ function load_stats(PDO $db): array
     ];
 }
 
-function search_entries(PDO $db, string $query, string $normalizedQuery, int $limit): array
+function search_entries(PDO $db, string $query, string $normalizedQuery, int $limit, int $page): array
 {
     $prefix = $normalizedQuery . '%';
     $contains = '%' . $normalizedQuery . '%';
+    $offset = max(0, ($page - 1) * $limit);
+
+    $countStatement = $db->prepare(
+        <<<SQL
+        SELECT COUNT(DISTINCT e.id)
+        FROM search_terms st
+        INNER JOIN entries e ON e.id = st.entry_id
+        WHERE st.normalized_term LIKE :contains
+        SQL
+    );
+    $countStatement->bindValue(':contains', $contains, PDO::PARAM_STR);
+    $countStatement->execute();
+    $total = (int) $countStatement->fetchColumn();
+
+    if ($total === 0) {
+        return [
+            'total' => 0,
+            'page' => 1,
+            'entries' => [],
+        ];
+    }
 
     $statement = $db->prepare(
         <<<SQL
@@ -108,6 +139,7 @@ function search_entries(PDO $db, string $query, string $normalizedQuery, int $li
         GROUP BY e.id, e.headword, e.decoded_complete
         ORDER BY exact_headword_rank ASC, rank ASC, term_length ASC, e.normalized_headword ASC
         LIMIT :limit
+        OFFSET :offset
         SQL
     );
     $statement->bindValue(':raw_query', $query, PDO::PARAM_STR);
@@ -115,11 +147,16 @@ function search_entries(PDO $db, string $query, string $normalizedQuery, int $li
     $statement->bindValue(':prefix', $prefix, PDO::PARAM_STR);
     $statement->bindValue(':contains', $contains, PDO::PARAM_STR);
     $statement->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $statement->bindValue(':offset', $offset, PDO::PARAM_INT);
     $statement->execute();
     $entries = $statement->fetchAll(PDO::FETCH_ASSOC);
 
     if (!$entries) {
-        return [];
+        return [
+            'total' => $total,
+            'page' => $page,
+            'entries' => [],
+        ];
     }
 
     $entryIds = array_map(static fn(array $entry): int => (int) $entry['id'], $entries);
@@ -150,7 +187,11 @@ function search_entries(PDO $db, string $query, string $normalizedQuery, int $li
     }
     unset($entry);
 
-    return $entries;
+    return [
+        'total' => $total,
+        'page' => $page,
+        'entries' => $entries,
+    ];
 }
 
 function decode_json_list(string $value): array
@@ -166,6 +207,52 @@ function decode_json_list(string $value): array
             static fn(string $item): bool => $item !== ''
         )
     );
+}
+
+function build_page_url(string $query, int $page): string
+{
+    return './index.php?' . http_build_query([
+        'q' => $query,
+        'page' => $page,
+    ]);
+}
+
+function build_page_window(int $page, int $totalPages, int $radius = 2): array
+{
+    $start = max(1, $page - $radius);
+    $end = min($totalPages, $page + $radius);
+    return range($start, $end);
+}
+
+function render_gloss_html(string $gloss): string
+{
+    $pattern = '~(\[[^\]]+\]|<[^>]+>|(?:^|\s)[a-z]\)|(?<![\pL])(?:m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)(?![\pL]))~u';
+    $parts = preg_split($pattern, $gloss, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+    if (!is_array($parts) || $parts === []) {
+        return htmlspecialchars($gloss, ENT_QUOTES, 'UTF-8');
+    }
+
+    $html = '';
+    foreach ($parts as $part) {
+        if ($part === '') {
+            continue;
+        }
+
+        $escaped = htmlspecialchars($part, ENT_QUOTES, 'UTF-8');
+        if (preg_match('/^\[[^\]]+\]$/u', $part) === 1) {
+            $html .= '<span class="gloss-note">' . $escaped . '</span>';
+        } elseif (preg_match('/^<[^>]+>$/u', $part) === 1) {
+            $html .= '<span class="gloss-label">' . $escaped . '</span>';
+        } elseif (preg_match('/^\s*[a-z]\)$/u', $part) === 1) {
+            $html .= '<span class="gloss-marker">' . $escaped . '</span>';
+        } elseif (preg_match('/^(m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)$/u', trim($part)) === 1) {
+            $html .= '<span class="gloss-grammar">' . $escaped . '</span>';
+        } else {
+            $html .= $escaped;
+        }
+    }
+
+    return $html;
 }
 ?>
 <!doctype html>
@@ -218,7 +305,7 @@ function decode_json_list(string $value): array
           <?php elseif ($normalizedQuery === ''): ?>
             <?= number_format($stats['entries']) ?> entradas y <?= number_format($stats['senses']) ?> acepciones listas para consultar.
           <?php else: ?>
-            <?= count($results) ?> resultado<?= count($results) === 1 ? '' : 's' ?> para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.
+            <?= number_format($totalResults) ?> resultado<?= $totalResults === 1 ? '' : 's' ?> para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.
           <?php endif; ?>
         </p>
       </section>
@@ -229,7 +316,7 @@ function decode_json_list(string $value): array
             <?php if ($normalizedQuery === ''): ?>
               Escribí una palabra para empezar
             <?php else: ?>
-              Mostrando hasta <?= $limit ?> coincidencias
+              Página <?= $page ?> de <?= max(1, $totalPages) ?>
             <?php endif; ?>
           </p>
           <p class="hint">
@@ -276,7 +363,7 @@ function decode_json_list(string $value): array
 
                       <ul class="sense-glosses">
                         <?php foreach ($sense['glosses'] as $gloss): ?>
-                          <li><?= htmlspecialchars($gloss, ENT_QUOTES, 'UTF-8') ?></li>
+                          <li><?= render_gloss_html($gloss) ?></li>
                         <?php endforeach; ?>
                       </ul>
                     </li>
@@ -284,6 +371,26 @@ function decode_json_list(string $value): array
                 </ol>
               </article>
             <?php endforeach; ?>
+
+            <?php if ($totalPages > 1): ?>
+              <nav class="pagination" aria-label="Paginación de resultados">
+                <?php if ($page > 1): ?>
+                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $page - 1), ENT_QUOTES, 'UTF-8') ?>">Anterior</a>
+                <?php endif; ?>
+
+                <?php foreach (build_page_window($page, $totalPages) as $pageNumber): ?>
+                  <?php if ($pageNumber === $page): ?>
+                    <span class="page-link current"><?= $pageNumber ?></span>
+                  <?php else: ?>
+                    <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $pageNumber), ENT_QUOTES, 'UTF-8') ?>"><?= $pageNumber ?></a>
+                  <?php endif; ?>
+                <?php endforeach; ?>
+
+                <?php if ($page < $totalPages): ?>
+                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $page + 1), ENT_QUOTES, 'UTF-8') ?>">Siguiente</a>
+                <?php endif; ?>
+              </nav>
+            <?php endif; ?>
           <?php endif; ?>
         </div>
       </section>
