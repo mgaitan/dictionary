@@ -24,12 +24,104 @@ GRAMMAR_TOKEN_RE = re.compile(
     r"^(m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)$",
     re.IGNORECASE,
 )
+COMMON_STOPWORDS = {
+    "aber",
+    "algo",
+    "alle",
+    "also",
+    "auch",
+    "bajo",
+    "beim",
+    "bien",
+    "como",
+    "con",
+    "dann",
+    "dass",
+    "dazu",
+    "de",
+    "del",
+    "dem",
+    "den",
+    "der",
+    "des",
+    "die",
+    "doch",
+    "dos",
+    "ein",
+    "eine",
+    "einem",
+    "einen",
+    "einer",
+    "eines",
+    "ellos",
+    "esta",
+    "este",
+    "esto",
+    "fuer",
+    "für",
+    "haben",
+    "hace",
+    "hacia",
+    "hasta",
+    "hier",
+    "ihre",
+    "ihren",
+    "immer",
+    "jede",
+    "jeder",
+    "jeden",
+    "jedes",
+    "kein",
+    "keine",
+    "mehr",
+    "mich",
+    "mit",
+    "nach",
+    "nicht",
+    "noch",
+    "oder",
+    "para",
+    "pero",
+    "poco",
+    "por",
+    "que",
+    "sein",
+    "seine",
+    "seinen",
+    "seiner",
+    "seines",
+    "sich",
+    "sind",
+    "sino",
+    "solo",
+    "sobre",
+    "son",
+    "tener",
+    "toda",
+    "todo",
+    "tres",
+    "über",
+    "und",
+    "una",
+    "uno",
+    "unter",
+    "viel",
+    "von",
+    "wenn",
+    "wir",
+    "wird",
+    "y",
+    "yo",
+    "zum",
+    "zur",
+}
 
 
 @dataclass(frozen=True)
 class DictionaryConfig:
     id: str
     database_path: Path
+    gloss_lookup_dictionary_id: str
     title: str
     description: str
     direction_label: str
@@ -43,6 +135,7 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
     "de-es": DictionaryConfig(
         id="de-es",
         database_path=DATA_DIR / "dictionary.sqlite",
+        gloss_lookup_dictionary_id="es-de",
         title="Diccionario alemán-español",
         description="Buscador FastAPI + SQLite para el diccionario alemán-español.",
         direction_label="Alemán -> español",
@@ -54,6 +147,7 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
     "es-de": DictionaryConfig(
         id="es-de",
         database_path=DATA_DIR / "es-de-dictionary.sqlite",
+        gloss_lookup_dictionary_id="de-es",
         title="Diccionario español-alemán",
         description="Buscador FastAPI + SQLite para el diccionario español-alemán.",
         direction_label="Español -> alemán",
@@ -84,6 +178,11 @@ def normalize_for_search(value: str) -> str:
     ascii_text = ascii_text.lower()
     ascii_text = re.sub(r"[^a-z0-9]+", " ", ascii_text)
     return re.sub(r"\s+", " ", ascii_text).strip()
+
+
+def slugify_fragment(value: str) -> str:
+    slug = normalize_for_search(value).replace(" ", "-")
+    return slug or "entry"
 
 
 def open_database(path: Path) -> sqlite3.Connection:
@@ -269,6 +368,149 @@ def build_dictionary_url(dictionary_id: str, query: str = "") -> str:
     if query:
         params["q"] = query
     return "/?" + urlencode(params)
+
+
+def build_sense_anchor(
+    dictionary_id: str,
+    headword: str,
+    entry_index: int,
+    sense_index: int,
+) -> str:
+    slug = slugify_fragment(headword)
+    return f"{dictionary_id}-{slug}-e{entry_index + 1}-s{sense_index + 1}"
+
+
+def lookup_term(
+    connection: sqlite3.Connection,
+    dictionary_id: str,
+    query: str,
+) -> dict[str, Any]:
+    normalized_query = normalize_for_search(query)
+    if not normalized_query:
+        return {"found": False, "query": query}
+
+    row = connection.execute(
+        """
+        SELECT
+            e.headword,
+            e.normalized_headword,
+            MIN(
+                CASE
+                    WHEN e.normalized_headword = ? THEN -1
+                    ELSE 0
+                END
+            ) AS exact_headword_rank,
+            MIN(LENGTH(st.normalized_term)) AS term_length
+        FROM search_terms st
+        INNER JOIN entries e ON e.id = st.entry_id
+        WHERE st.normalized_term = ?
+        GROUP BY e.id, e.headword, e.normalized_headword
+        ORDER BY exact_headword_rank ASC, term_length ASC, e.normalized_headword ASC
+        LIMIT 1
+        """,
+        (normalized_query, normalized_query),
+    ).fetchone()
+
+    if row is None:
+        return {
+            "found": False,
+            "query": query,
+            "normalized_query": normalized_query,
+        }
+
+    return {
+        "found": True,
+        "query": query,
+        "normalized_query": normalized_query,
+        "headword": str(row["headword"]),
+        "url": build_dictionary_url(dictionary_id, str(row["headword"])),
+    }
+
+
+def lookup_linkable_terms(
+    connection: sqlite3.Connection,
+    dictionary_id: str,
+    terms: list[str],
+) -> dict[str, dict[str, str]]:
+    cleaned: dict[str, str] = {}
+    for term in terms:
+        normalized = normalize_for_search(term)
+        if len(normalized) < 3 or " " in normalized:
+            continue
+        if normalized in COMMON_STOPWORDS:
+            continue
+        cleaned.setdefault(normalized, term.strip())
+
+    if not cleaned:
+        return {}
+
+    candidate_map: dict[str, list[str]] = {}
+    for normalized in cleaned:
+        candidates = [normalized]
+        if normalized.endswith("es") and len(normalized) > 4:
+            candidates.append(normalized[:-2])
+        if normalized.endswith("s") and len(normalized) > 4:
+            candidates.append(normalized[:-1])
+        if normalized.endswith("en") and len(normalized) > 5:
+            candidates.append(normalized[:-2])
+        if normalized.endswith("er") and len(normalized) > 5:
+            candidates.append(normalized[:-2])
+        if normalized.endswith("e") and len(normalized) > 4:
+            candidates.append(normalized[:-1])
+        candidate_map[normalized] = list(dict.fromkeys(candidates))
+
+    all_candidates = list(
+        dict.fromkeys(
+            candidate
+            for candidates in candidate_map.values()
+            for candidate in candidates
+        )
+    )
+    placeholders = ",".join("?" for _ in all_candidates)
+    rows = connection.execute(
+        f"""
+        SELECT
+            st.normalized_term,
+            st.kind,
+            e.headword,
+            e.normalized_headword
+        FROM search_terms st
+        INNER JOIN entries e ON e.id = st.entry_id
+        WHERE st.normalized_term IN ({placeholders})
+        ORDER BY
+            CASE
+                WHEN st.kind = 'headword' THEN 0
+                WHEN st.kind = 'variant' THEN 1
+                ELSE 2
+            END ASC,
+            LENGTH(e.normalized_headword) ASC,
+            e.normalized_headword ASC,
+            e.headword ASC
+        """,
+        tuple(all_candidates),
+    ).fetchall()
+
+    matches_by_term: dict[str, list[dict[str, str]]] = {}
+    for row in rows:
+        normalized_term = str(row["normalized_term"])
+        headword = str(row["headword"])
+        matches_by_term.setdefault(normalized_term, []).append(
+            {
+                "headword": headword,
+                "url": build_dictionary_url(dictionary_id, headword),
+            }
+        )
+
+    results: dict[str, dict[str, str]] = {}
+    for normalized, candidates in candidate_map.items():
+        for candidate in candidates:
+            matches = matches_by_term.get(candidate)
+            if not matches:
+                continue
+            results[normalized] = matches[0]
+            break
+
+    return results
 
 
 def render_gloss_html(gloss: str) -> Markup:

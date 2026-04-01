@@ -9,6 +9,12 @@
             rel="stylesheet"
             href="{{ request.url_for('static', path='styles.css') }}"
         />
+        {% if normalized_query %}
+        <script
+            defer
+            src="{{ request.url_for('static', path='app.js') }}"
+        ></script>
+        {% endif %}
     </head>
     <body>
         <main class="shell">
@@ -154,7 +160,8 @@
                     <div class="empty-state">
                         No encontré coincidencias para “{{ query }}”.
                     </div>
-                    {% endif %} {% for entry in results %}
+                    {% endif %} {% for entry in results %} {% set entry_index =
+                    loop.index0 %}
                     <article class="entry-card">
                         <header class="entry-header">
                             <div>
@@ -165,8 +172,17 @@
                         </header>
 
                         <ol class="sense-list">
-                            {% for sense in entry.senses %}
-                            <li class="sense-item">
+                            {% for sense in entry.senses %} {% set sense_anchor
+                            = build_sense_anchor(dictionary_id, entry.headword,
+                            entry_index, loop.index0) %}
+                            <li class="sense-item" id="{{ sense_anchor }}">
+                                <a
+                                    class="sense-permalink"
+                                    href="#{{ sense_anchor }}"
+                                    aria-label="Enlace directo a esta acepción"
+                                    title="Copiar enlace a esta acepción"
+                                    >#</a
+                                >
                                 {% if sense.tags %}
                                 <div class="sense-tags">
                                     {% for tag in sense.tags %}
@@ -179,7 +195,12 @@
 
                                 <ul class="sense-glosses">
                                     {% for gloss in sense.glosses %}
-                                    <li>{{ gloss|render_gloss_html }}</li>
+                                    <li
+                                        class="gloss-line"
+                                        data-dictionary-id="{{ dictionary.gloss_lookup_dictionary_id }}"
+                                    >
+                                        {{ gloss|render_gloss_html }}
+                                    </li>
                                     {% endfor %}
                                 </ul>
                             </li>

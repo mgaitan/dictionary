@@ -28,8 +28,16 @@ body {
     font-family: Georgia, "Times New Roman", serif;
     color: var(--text);
     background:
-        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 30%),
-        radial-gradient(circle at top right, rgba(228, 211, 180, 0.9), transparent 28%),
+        radial-gradient(
+            circle at top left,
+            rgba(255, 255, 255, 0.9),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at top right,
+            rgba(228, 211, 180, 0.9),
+            transparent 28%
+        ),
         linear-gradient(180deg, #f8f4ed 0%, var(--bg) 48%, #eadfc9 100%);
 }
 
@@ -228,7 +236,11 @@ label {
     border: 1px solid var(--border);
     border-radius: 20px;
     background:
-        linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(255, 247, 235, 0.94)),
+        linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.68),
+            rgba(255, 247, 235, 0.94)
+        ),
         var(--surface-strong);
     animation: rise-in 260ms ease both;
 }
@@ -236,7 +248,11 @@ label {
 .unresolved-card {
     border-color: rgba(46, 83, 142, 0.24);
     background:
-        linear-gradient(135deg, rgba(243, 248, 255, 0.82), rgba(255, 251, 243, 0.94)),
+        linear-gradient(
+            135deg,
+            rgba(243, 248, 255, 0.82),
+            rgba(255, 251, 243, 0.94)
+        ),
         var(--surface-strong);
 }
 
@@ -262,7 +278,49 @@ label {
 }
 
 .sense-item {
-    padding-left: 0.2rem;
+    position: relative;
+    padding: 0 2.3rem 0 0.2rem;
+    scroll-margin-top: 1.25rem;
+}
+
+.sense-item:target {
+    background: rgba(159, 63, 25, 0.08);
+    border-radius: 14px;
+    padding: 0.75rem 2.8rem 0.75rem 0.95rem;
+}
+
+.sense-permalink {
+    position: absolute;
+    top: 0.05rem;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.85rem;
+    min-height: 1.85rem;
+    border-radius: 999px;
+    color: var(--muted);
+    text-decoration: none;
+    border: 1px solid transparent;
+    background: rgba(255, 251, 243, 0.88);
+    opacity: 0.3;
+    transition:
+        opacity 180ms ease,
+        color 180ms ease,
+        border-color 180ms ease,
+        background 180ms ease;
+}
+
+.sense-item:hover .sense-permalink,
+.sense-item:focus-within .sense-permalink,
+.sense-item:target .sense-permalink {
+    opacity: 1;
+}
+
+.sense-permalink:hover {
+    color: var(--accent);
+    border-color: rgba(159, 63, 25, 0.18);
+    background: rgba(255, 248, 239, 0.96);
 }
 
 .sense-tags {
@@ -298,6 +356,32 @@ label {
 
 .sense-glosses li {
     line-height: 1.55;
+}
+
+.gloss-line {
+    position: relative;
+}
+
+.gloss-link {
+    color: inherit;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 0.8px;
+    text-decoration-color: rgba(110, 93, 71, 0.28);
+    text-underline-offset: 0.12em;
+    transition:
+        color 180ms ease,
+        text-decoration-color 180ms ease,
+        background 180ms ease;
+}
+
+.gloss-link:hover,
+.gloss-link:focus-visible {
+    color: inherit;
+    text-decoration-style: solid;
+    text-decoration-color: rgba(159, 63, 25, 0.55);
+    background: rgba(159, 63, 25, 0.06);
+    border-radius: 0.2rem;
 }
 
 .gloss-note,
@@ -402,5 +486,17 @@ code {
 
     .results-meta {
         align-items: flex-start;
+    }
+
+    .sense-item {
+        padding-right: 1.9rem;
+    }
+
+    .sense-item:target {
+        padding-right: 2.4rem;
+    }
+
+    .sense-permalink {
+        opacity: 1;
     }
 }

@@ -3,7 +3,7 @@ from __future__ import annotations
 from contextlib import closing
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Body, FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -14,9 +14,11 @@ from dictionary.search import (
     build_dictionary_url,
     build_page_url,
     build_page_window,
+    build_sense_anchor,
     find_unresolved_index_entry,
     get_dictionary,
     load_stats,
+    lookup_linkable_terms,
     normalize_for_search,
     open_database,
     render_gloss_html,
@@ -29,6 +31,7 @@ templates.env.filters["render_gloss_html"] = render_gloss_html
 templates.env.globals["build_page_url"] = build_page_url
 templates.env.globals["build_dictionary_url"] = build_dictionary_url
 templates.env.globals["build_page_window"] = build_page_window
+templates.env.globals["build_sense_anchor"] = build_sense_anchor
 
 app = FastAPI(title="dictionary")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
@@ -125,3 +128,25 @@ def healthcheck() -> JSONResponse:
         "dictionaries": sorted(DICTIONARIES.keys()),
     }
     return JSONResponse(payload)
+
+
+@app.post("/api/linkable-terms", response_class=JSONResponse)
+def linkable_terms(
+    request: Request,
+    dict: str = "de-es",
+    terms: list[str] = Body(default=[]),
+) -> JSONResponse:
+    dictionary = get_dictionary(dict)
+
+    if not dictionary.database_path.is_file():
+        return JSONResponse(
+            {
+                "results": {},
+                "error": "database_missing",
+            },
+            status_code=503,
+        )
+
+    with closing(open_database(dictionary.database_path)) as connection:
+        payload = lookup_linkable_terms(connection, dictionary.id, terms)
+    return JSONResponse({"results": payload})
