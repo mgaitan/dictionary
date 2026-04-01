@@ -1,5 +1,6 @@
 __pycache__/
 *.pyc
+.venv/
 
 UniLex - Brandstetter Slaby/
 UniLex - Brandstetter Slaby-20220623T125347Z-001.zip

@@ -1,5 +1,4 @@
 PYTHON ?= uv run
-PHP ?= php
 
 ROOT_DIR := /home/tin/lab/UniLex
 SITE_DIR := $(ROOT_DIR)/site
@@ -27,7 +26,7 @@ ES_DE_SQLITE := $(DATA_DIR)/es-de-dictionary.sqlite
 	build-index build-raw build-json build-sqlite build-data \
 	build-index-de-es build-raw-de-es build-json-de-es build-sqlite-de-es build-data-de-es \
 	build-index-es-de build-raw-es-de build-json-es-de build-sqlite-es-de build-data-es-de \
-	serve clean
+	serve lock-fastapi clean
 
 all: build-data
 
@@ -66,7 +65,10 @@ build-sqlite-es-de:
 build-data-es-de: build-index-es-de build-raw-es-de build-json-es-de build-sqlite-es-de
 
 serve:
-	cd "$(SITE_DIR)" && $(PHP) -S 127.0.0.1:8000
+	cd "$(ROOT_DIR)" && uv run fastapi dev --host 127.0.0.1 --port 8001
+
+lock-fastapi:
+	cd "$(ROOT_DIR)" && uv lock
 
 clean:
 	rm -f "$(DE_ES_INDEX)" "$(DE_ES_RAW)" "$(DE_ES_JSON)" "$(DE_ES_SQLITE)"

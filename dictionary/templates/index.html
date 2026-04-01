@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{{ dictionary.title }}</title>
+        <meta name="description" content="{{ dictionary.description }}" />
+        <link
+            rel="stylesheet"
+            href="{{ request.url_for('static', path='styles.css') }}"
+        />
+    </head>
+    <body>
+        <main class="shell">
+            <section class="hero">
+                <div
+                    class="dictionary-switcher"
+                    aria-label="Dirección del diccionario"
+                >
+                    {% for id, item in dictionaries.items() %} {% if id ==
+                    dictionary_id %}
+                    <span class="dictionary-link current"
+                        >{{ item.direction_label }}</span
+                    >
+                    {% else %}
+                    <a
+                        class="dictionary-link"
+                        href="{{ build_dictionary_url(id, query) }}"
+                        >{{ item.direction_label }}</a
+                    >
+                    {% endif %} {% endfor %}
+                </div>
+                <h1>{{ dictionary.title }}</h1>
+                {% if dictionary.hero_lead %}
+                <p class="lede">{{ dictionary.hero_lead }}</p>
+                {% endif %}
+            </section>
+
+            <section class="panel controls" aria-label="Controles de búsqueda">
+                <form class="search-form" method="get" action="/">
+                    <input
+                        type="hidden"
+                        name="dict"
+                        value="{{ dictionary_id }}"
+                    />
+                    <div class="search-box">
+                        <label for="search-input"
+                            >{{ dictionary.search_label }}</label
+                        >
+                        <input
+                            id="search-input"
+                            name="q"
+                            type="search"
+                            placeholder="{{ dictionary.placeholder }}"
+                            autocomplete="off"
+                            spellcheck="false"
+                            value="{{ query }}"
+                        />
+                    </div>
+
+                    <div class="actions">
+                        <button type="submit">Buscar</button>
+                        <a
+                            class="file-button"
+                            href="{{ build_dictionary_url(dictionary_id) }}"
+                            >Limpiar</a
+                        >
+                    </div>
+                </form>
+
+                <p class="status" role="status" aria-live="polite">
+                    {% if error %} {{ error }} {% elif not normalized_query %}
+                    {{ dictionary.direction_label }}: {{
+                    "{:,}".format(stats.entries).replace(",", ".") }} entradas y
+                    {{ "{:,}".format(stats.senses).replace(",", ".") }}
+                    acepciones listas para consultar. {% else %} {{
+                    "{:,}".format(displayed_result_count).replace(",", ".") }}
+                    resultado{% if displayed_result_count != 1 %}s{% endif %}
+                    visible{% if displayed_result_count != 1 %}s{% endif %} para
+                    “{{ query }}”. {% endif %}
+                </p>
+            </section>
+
+            <section class="panel results-panel" aria-label="Resultados">
+                <div class="results-meta">
+                    <p id="result-count">
+                        {% if not normalized_query %} Escribí una palabra para
+                        empezar {% else %} Página {{ page }} de {{ total_pages
+                        if total_pages > 0 else 1 }} {% endif %}
+                    </p>
+                    <p class="hint">
+                        Prioriza coincidencia exacta, luego prefijo y después
+                        contenido.
+                    </p>
+                </div>
+
+                <div class="results">
+                    {% if error %}
+                    <div class="empty-state">
+                        La aplicación no pudo abrir la base de datos.
+                    </div>
+                    {% elif not normalized_query %}
+                    <div class="empty-state">
+                        Probá con {% for example in dictionary.examples %} {% if
+                        not loop.first %}{% if loop.last %} o {% else %}, {%
+                        endif %}{% endif %}
+                        <code>{{ example }}</code>
+                        {% endfor %}.
+                    </div>
+                    {% else %} {% if fallback_index_entry %}
+                    <article class="entry-card unresolved-card">
+                        <header class="entry-header">
+                            <div>
+                                <h2 class="entry-title">
+                                    {{ fallback_index_entry.headword }}
+                                </h2>
+                                <p class="entry-subtitle">
+                                    Entrada detectada en el índice original,
+                                    pendiente de reconstrucción automática
+                                </p>
+                            </div>
+                        </header>
+
+                        <ol class="sense-list">
+                            <li class="sense-item">
+                                <p class="sense-source">
+                                    El lema existe en el índice
+                                    <code>IDO</code>, pero todavía no pude
+                                    extraer su artículo desde <code>LEO</code>.
+                                </p>
+                                <ul class="sense-glosses">
+                                    <li>
+                                        offset LEO:
+                                        <code
+                                            >0x{{
+                                            "%x"|format(fallback_index_entry.leo_offset)
+                                            }}</code
+                                        >
+                                    </li>
+                                    <li>
+                                        span de bloque:
+                                        <code
+                                            >0x{{
+                                            "%x"|format(fallback_index_entry.page_span)
+                                            }}</code
+                                        >
+                                    </li>
+                                </ul>
+                            </li>
+                        </ol>
+                    </article>
+                    {% endif %} {% if not results and not fallback_index_entry
+                    %}
+                    <div class="empty-state">
+                        No encontré coincidencias para “{{ query }}”.
+                    </div>
+                    {% endif %} {% for entry in results %}
+                    <article class="entry-card">
+                        <header class="entry-header">
+                            <div>
+                                <h2 class="entry-title">
+                                    {{ entry.headword }}
+                                </h2>
+                                <p class="entry-subtitle">
+                                    {% if entry.decoded_complete %} Entrada
+                                    decodificada completamente {% else %}
+                                    Entrada parcialmente reconstruida {% endif
+                                    %}
+                                </p>
+                            </div>
+                        </header>
+
+                        <ol class="sense-list">
+                            {% for sense in entry.senses %}
+                            <li class="sense-item">
+                                {% if sense.tags %}
+                                <div class="sense-tags">
+                                    {% for tag in sense.tags %}
+                                    <span class="tag">{{ tag }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %} {% if sense.source %}
+                                <p class="sense-source">{{ sense.source }}</p>
+                                {% endif %}
+
+                                <ul class="sense-glosses">
+                                    {% for gloss in sense.glosses %}
+                                    <li>{{ gloss|render_gloss_html }}</li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </article>
+                    {% endfor %} {% if total_pages > 1 %}
+                    <nav
+                        class="pagination"
+                        aria-label="Paginación de resultados"
+                    >
+                        {% if page > 1 %}
+                        <a
+                            class="page-link"
+                            href="{{ build_page_url(dictionary_id, query, page - 1) }}"
+                            >Anterior</a
+                        >
+                        {% endif %} {% for page_number in
+                        build_page_window(page, total_pages) %} {% if
+                        page_number == page %}
+                        <span class="page-link current">{{ page_number }}</span>
+                        {% else %}
+                        <a
+                            class="page-link"
+                            href="{{ build_page_url(dictionary_id, query, page_number) }}"
+                            >{{ page_number }}</a
+                        >
+                        {% endif %} {% endfor %} {% if page < total_pages %}
+                        <a
+                            class="page-link"
+                            href="{{ build_page_url(dictionary_id, query, page + 1) }}"
+                            >Siguiente</a
+                        >
+                        {% endif %}
+                    </nav>
+                    {% endif %} {% endif %}
+                </div>
+            </section>
+        </main>
+    </body>
+</html>

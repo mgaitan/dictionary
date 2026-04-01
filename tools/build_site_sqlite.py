@@ -257,7 +257,7 @@ def import_dictionary(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Build SQLite database for the PHP site"
+        description="Build SQLite database for the web app"
     )
     parser.add_argument(
         "--json",

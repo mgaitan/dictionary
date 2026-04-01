@@ -1,6 +1,5 @@
 :root {
     --bg: #f4efe5;
-    --bg-accent: #e4d3b4;
     --surface: rgba(255, 251, 243, 0.86);
     --surface-strong: #fffaf0;
     --border: rgba(74, 55, 25, 0.16);
@@ -12,7 +11,6 @@
     --shadow: 0 20px 50px rgba(89, 60, 22, 0.12);
     --radius-lg: 24px;
     --radius-md: 16px;
-    --radius-sm: 10px;
     --max-width: 1040px;
 }
 
@@ -30,16 +28,8 @@ body {
     font-family: Georgia, "Times New Roman", serif;
     color: var(--text);
     background:
-        radial-gradient(
-            circle at top left,
-            rgba(255, 255, 255, 0.9),
-            transparent 30%
-        ),
-        radial-gradient(
-            circle at top right,
-            rgba(228, 211, 180, 0.9),
-            transparent 28%
-        ),
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.9), transparent 30%),
+        radial-gradient(circle at top right, rgba(228, 211, 180, 0.9), transparent 28%),
         linear-gradient(180deg, #f8f4ed 0%, var(--bg) 48%, #eadfc9 100%);
 }
 
@@ -57,6 +47,14 @@ label {
 
 .hero {
     padding: 0.5rem 0 1.75rem;
+}
+
+.eyebrow {
+    margin: 0 0 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.8rem;
+    color: var(--accent);
 }
 
 .dictionary-switcher {
@@ -94,14 +92,6 @@ label {
     background: var(--accent-soft);
     color: #6d2a10;
     font-weight: 700;
-}
-
-.eyebrow {
-    margin: 0 0 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    font-size: 0.8rem;
-    color: var(--accent);
 }
 
 .hero h1 {
@@ -200,20 +190,6 @@ label {
     background: #fffdf8;
 }
 
-#reload-button {
-    background: var(--accent-soft);
-    border-color: rgba(159, 63, 25, 0.24);
-}
-
-#file-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-}
-
 .status {
     margin: 0;
     min-height: 1.5rem;
@@ -252,11 +228,7 @@ label {
     border: 1px solid var(--border);
     border-radius: 20px;
     background:
-        linear-gradient(
-            135deg,
-            rgba(255, 255, 255, 0.68),
-            rgba(255, 247, 235, 0.94)
-        ),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.68), rgba(255, 247, 235, 0.94)),
         var(--surface-strong);
     animation: rise-in 260ms ease both;
 }
@@ -264,11 +236,7 @@ label {
 .unresolved-card {
     border-color: rgba(46, 83, 142, 0.24);
     background:
-        linear-gradient(
-            135deg,
-            rgba(243, 248, 255, 0.82),
-            rgba(255, 251, 243, 0.94)
-        ),
+        linear-gradient(135deg, rgba(243, 248, 255, 0.82), rgba(255, 251, 243, 0.94)),
         var(--surface-strong);
 }
 
