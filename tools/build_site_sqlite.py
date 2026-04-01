@@ -30,6 +30,7 @@ def create_schema(db: sqlite3.Connection) -> None:
         PRAGMA temp_store = MEMORY;
 
         DROP TABLE IF EXISTS metadata;
+        DROP TABLE IF EXISTS index_entries;
         DROP TABLE IF EXISTS search_terms;
         DROP TABLE IF EXISTS senses;
         DROP TABLE IF EXISTS entries;
@@ -64,6 +65,15 @@ def create_schema(db: sqlite3.Connection) -> None:
             FOREIGN KEY (entry_id) REFERENCES entries(id) ON DELETE CASCADE
         );
 
+        CREATE TABLE index_entries (
+            id INTEGER PRIMARY KEY,
+            headword TEXT NOT NULL,
+            normalized_headword TEXT NOT NULL,
+            leo_offset INTEGER NOT NULL,
+            page_span INTEGER NOT NULL,
+            has_decoded_entry INTEGER NOT NULL DEFAULT 0
+        );
+
         CREATE INDEX idx_entries_normalized_headword
             ON entries(normalized_headword);
         CREATE INDEX idx_search_terms_normalized_term
@@ -72,6 +82,8 @@ def create_schema(db: sqlite3.Connection) -> None:
             ON search_terms(entry_id);
         CREATE INDEX idx_senses_entry_index
             ON senses(entry_id, sense_index);
+        CREATE INDEX idx_index_entries_normalized_headword
+            ON index_entries(normalized_headword);
         """
     )
 
@@ -100,9 +112,13 @@ def iter_search_terms(entry: dict[str, object]) -> list[tuple[str, str]]:
     return terms
 
 
-def import_dictionary(json_path: Path, sqlite_path: Path) -> dict[str, int]:
+def import_dictionary(
+    json_path: Path, sqlite_path: Path, index_path: Path
+) -> dict[str, int]:
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     entries = payload["entries"]
+    index_payload = json.loads(index_path.read_text(encoding="utf-8"))
+    index_entries = index_payload["entries"]
 
     ensure_parent(sqlite_path)
     if sqlite_path.exists():
@@ -115,12 +131,16 @@ def import_dictionary(json_path: Path, sqlite_path: Path) -> dict[str, int]:
         entry_count = 0
         sense_count = 0
         search_term_count = 0
+        index_entry_count = 0
+        resolved_index_entry_count = 0
+        resolved_exact_headwords: set[str] = set()
 
         with db:
             db.executemany(
                 "INSERT INTO metadata(key, value) VALUES (?, ?)",
                 [
                     ("source_json", str(json_path)),
+                    ("source_index_json", str(index_path)),
                     ("entry_count", str(len(entries))),
                 ],
             )
@@ -139,6 +159,7 @@ def import_dictionary(json_path: Path, sqlite_path: Path) -> dict[str, int]:
                 )
                 entry_id = int(cursor.lastrowid)
                 entry_count += 1
+                resolved_exact_headwords.add(normalized_headword)
 
                 for sense_index, sense in enumerate(entry.get("senses", [])):
                     db.execute(
@@ -173,6 +194,55 @@ def import_dictionary(json_path: Path, sqlite_path: Path) -> dict[str, int]:
                     ("search_term_count", str(search_term_count)),
                 ],
             )
+
+            seen_index_entries: set[tuple[str, int, int]] = set()
+            for index_entry in index_entries:
+                headword = str(index_entry["headword"]).strip()
+                if not headword:
+                    continue
+
+                normalized_headword = normalize_for_search(headword)
+                signature = (
+                    normalized_headword,
+                    int(index_entry["leo_offset"]),
+                    int(index_entry["page_span"]),
+                )
+                if signature in seen_index_entries:
+                    continue
+                seen_index_entries.add(signature)
+
+                has_decoded_entry = (
+                    1 if normalized_headword in resolved_exact_headwords else 0
+                )
+                db.execute(
+                    """
+                    INSERT INTO index_entries(
+                        headword,
+                        normalized_headword,
+                        leo_offset,
+                        page_span,
+                        has_decoded_entry
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        headword,
+                        normalized_headword,
+                        int(index_entry["leo_offset"]),
+                        int(index_entry["page_span"]),
+                        has_decoded_entry,
+                    ),
+                )
+                index_entry_count += 1
+                resolved_index_entry_count += has_decoded_entry
+
+            db.executemany(
+                "INSERT OR REPLACE INTO metadata(key, value) VALUES (?, ?)",
+                [
+                    ("index_entry_count", str(index_entry_count)),
+                    ("resolved_index_entry_count", str(resolved_index_entry_count)),
+                ],
+            )
     finally:
         db.close()
 
@@ -180,6 +250,8 @@ def import_dictionary(json_path: Path, sqlite_path: Path) -> dict[str, int]:
         "entries": entry_count,
         "senses": sense_count,
         "search_terms": search_term_count,
+        "index_entries": index_entry_count,
+        "resolved_index_entries": resolved_index_entry_count,
     }
 
 
@@ -193,6 +265,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="clean dictionary JSON generated for the site",
     )
     parser.add_argument(
+        "--index",
+        default="/home/tin/lab/UniLex/site/data/index.json",
+        help="authentic IDO/LEO index JSON",
+    )
+    parser.add_argument(
         "--sqlite",
         default="/home/tin/lab/UniLex/site/data/dictionary.sqlite",
         help="output SQLite file",
@@ -203,11 +280,12 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    stats = import_dictionary(Path(args.json), Path(args.sqlite))
+    stats = import_dictionary(Path(args.json), Path(args.sqlite), Path(args.index))
     print(
         f"imported {stats['entries']} entries,"
         f" {stats['senses']} senses and"
-        f" {stats['search_terms']} search terms"
+        f" {stats['search_terms']} search terms,"
+        f" plus {stats['index_entries']} index entries"
         f" into {args.sqlite}"
     )
     return 0

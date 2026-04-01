@@ -224,6 +224,17 @@ label {
     animation: rise-in 260ms ease both;
 }
 
+.unresolved-card {
+    border-color: rgba(46, 83, 142, 0.24);
+    background:
+        linear-gradient(
+            135deg,
+            rgba(243, 248, 255, 0.82),
+            rgba(255, 251, 243, 0.94)
+        ),
+        var(--surface-strong);
+}
+
 .entry-header {
     margin-bottom: 0.85rem;
 }

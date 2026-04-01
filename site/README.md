@@ -6,13 +6,21 @@ hosting compartido, mientras que la generación de datos siga en Python.
 
 ## Flujo recomendado
 
-1. Generar el JSON limpio:
+1. Extraer el diccionario crudo desde `IDO/LEO`:
+
+```bash
+uv run /home/tin/lab/UniLex/tools/build_raw_dictionary.py
+```
+
+Eso genera `data/dictionary.json`.
+
+2. Generar el JSON limpio:
 
 ```bash
 uv run /home/tin/lab/UniLex/tools/build_site_dictionary.py
 ```
 
-2. Importarlo a SQLite:
+3. Importarlo a SQLite:
 
 ```bash
 uv run /home/tin/lab/UniLex/tools/build_site_sqlite.py
@@ -43,6 +51,8 @@ make serve
 - `index.php`: buscador web server-side
 - `styles.css`: estilos del sitio
 - `data/dictionary.sqlite`: base lista para subir al hosting
+- `data/dictionary.json`: extracción cruda reproducible desde `IDO/LEO`
 - `data/dictionary-indexed.json`: dataset limpio intermedio
+- `../tools/build_raw_dictionary.py`: reconstruye `dictionary.json` desde `IDO/LEO` y `aclexman.dll`
 - `../tools/build_site_dictionary.py`: limpia y reagrupa el JSON extraído
 - `../tools/build_site_sqlite.py`: convierte el JSON limpio a SQLite

@@ -8,8 +8,10 @@ $page = max(1, (int) ($_GET['page'] ?? 1));
 $limit = 25;
 $error = null;
 $results = [];
+$fallbackIndexEntry = null;
 $totalResults = 0;
 $totalPages = 0;
+$displayedResultCount = 0;
 $stats = [
     'entries' => 0,
     'senses' => 0,
@@ -32,6 +34,12 @@ if (!is_file($databasePath)) {
                 $search = search_entries($db, $query, $normalizedQuery, $limit, $page);
             }
             $results = $search['entries'];
+            $fallbackIndexEntry = find_unresolved_index_entry(
+                $db,
+                $normalizedQuery,
+                $results
+            );
+            $displayedResultCount = count($results) + ($fallbackIndexEntry !== null ? 1 : 0);
         }
     } catch (Throwable $exception) {
         $error = $exception->getMessage();
@@ -209,6 +217,34 @@ function decode_json_list(string $value): array
     );
 }
 
+function find_unresolved_index_entry(
+    PDO $db,
+    string $normalizedQuery,
+    array $results
+): ?array {
+    foreach ($results as $entry) {
+        if (normalize_for_search((string) $entry['headword']) === $normalizedQuery) {
+            return null;
+        }
+    }
+
+    $statement = $db->prepare(
+        <<<SQL
+        SELECT headword, leo_offset, page_span
+        FROM index_entries
+        WHERE normalized_headword = :normalized_headword
+          AND has_decoded_entry = 0
+        ORDER BY leo_offset ASC
+        LIMIT 1
+        SQL
+    );
+    $statement->bindValue(':normalized_headword', $normalizedQuery, PDO::PARAM_STR);
+    $statement->execute();
+    $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
 function build_page_url(string $query, int $page): string
 {
     return './index.php?' . http_build_query([
@@ -226,13 +262,22 @@ function build_page_window(int $page, int $totalPages, int $radius = 2): array
 
 function render_gloss_html(string $gloss): string
 {
-    $pattern = '~(\[[^\]]+\]|<[^>]+>|(?:^|\s)[a-z]\)|(?<![\pL])(?:m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)(?![\pL]))~u';
-    $parts = preg_split($pattern, $gloss, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
-    if (!is_array($parts) || $parts === []) {
-        return htmlspecialchars($gloss, ENT_QUOTES, 'UTF-8');
+    $html = '';
+    $rest = $gloss;
+
+    if (preg_match('/^\s*([a-z]\))\s*/u', $gloss, $matches) === 1) {
+        $html .= '<span class="gloss-marker">'
+            . htmlspecialchars($matches[1], ENT_QUOTES, 'UTF-8')
+            . '</span> ';
+        $rest = (string) substr($gloss, strlen($matches[0]));
     }
 
-    $html = '';
+    $pattern = '~(\[[^\]]+\]|<[^>]+>|(?<![\pL·])(?:m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)(?![\pL]))~u';
+    $parts = preg_split($pattern, $rest, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+    if (!is_array($parts) || $parts === []) {
+        return $html . htmlspecialchars($rest, ENT_QUOTES, 'UTF-8');
+    }
+
     foreach ($parts as $part) {
         if ($part === '') {
             continue;
@@ -243,8 +288,6 @@ function render_gloss_html(string $gloss): string
             $html .= '<span class="gloss-note">' . $escaped . '</span>';
         } elseif (preg_match('/^<[^>]+>$/u', $part) === 1) {
             $html .= '<span class="gloss-label">' . $escaped . '</span>';
-        } elseif (preg_match('/^\s*[a-z]\)$/u', $part) === 1) {
-            $html .= '<span class="gloss-marker">' . $escaped . '</span>';
         } elseif (preg_match('/^(m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)$/u', trim($part)) === 1) {
             $html .= '<span class="gloss-grammar">' . $escaped . '</span>';
         } else {
@@ -305,7 +348,7 @@ function render_gloss_html(string $gloss): string
           <?php elseif ($normalizedQuery === ''): ?>
             <?= number_format($stats['entries']) ?> entradas y <?= number_format($stats['senses']) ?> acepciones listas para consultar.
           <?php else: ?>
-            <?= number_format($totalResults) ?> resultado<?= $totalResults === 1 ? '' : 's' ?> para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.
+            <?= number_format($displayedResultCount) ?> resultado<?= $displayedResultCount === 1 ? '' : 's' ?> visible<?= $displayedResultCount === 1 ? '' : 's' ?> para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.
           <?php endif; ?>
         </p>
       </section>
@@ -332,9 +375,33 @@ function render_gloss_html(string $gloss): string
               Probá con <code>Macher</code>, <code>Machbarkeit</code>,
               <code>Tabakqualm</code> o <code>Verabschiedung</code>.
             </div>
-          <?php elseif (!$results): ?>
-            <div class="empty-state">No encontré coincidencias para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.</div>
           <?php else: ?>
+            <?php if ($fallbackIndexEntry !== null): ?>
+              <article class="entry-card unresolved-card">
+                <header class="entry-header">
+                  <div>
+                    <h2 class="entry-title"><?= htmlspecialchars((string) $fallbackIndexEntry['headword'], ENT_QUOTES, 'UTF-8') ?></h2>
+                    <p class="entry-subtitle">Entrada detectada en el índice original, pendiente de reconstrucción automática</p>
+                  </div>
+                </header>
+
+                <ol class="sense-list">
+                  <li class="sense-item">
+                    <p class="sense-source">El lema existe en el índice <code>IDO</code>, pero todavía no pude extraer su artículo desde <code>LEO</code>.</p>
+                    <ul class="sense-glosses">
+                      <li>offset LEO: <code>0x<?= strtolower(dechex((int) $fallbackIndexEntry['leo_offset'])) ?></code></li>
+                      <li>span de bloque: <code>0x<?= strtolower(dechex((int) $fallbackIndexEntry['page_span'])) ?></code></li>
+                    </ul>
+                  </li>
+                </ol>
+              </article>
+            <?php endif; ?>
+
+            <?php if (!$results && $fallbackIndexEntry === null): ?>
+              <div class="empty-state">No encontré coincidencias para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.</div>
+            <?php endif; ?>
+
+            <?php if ($results): ?>
             <?php foreach ($results as $entry): ?>
               <article class="entry-card">
                 <header class="entry-header">
@@ -371,6 +438,7 @@ function render_gloss_html(string $gloss): string
                 </ol>
               </article>
             <?php endforeach; ?>
+            <?php endif; ?>
 
             <?php if ($totalPages > 1): ?>
               <nav class="pagination" aria-label="Paginación de resultados">

@@ -3,9 +3,12 @@ PHP ?= php
 SITE_DIR := /home/tin/lab/UniLex/site
 TOOLS_DIR := /home/tin/lab/UniLex/tools
 
-.PHONY: all build-json build-sqlite build-data serve clean
+.PHONY: all build-raw build-json build-sqlite build-data serve clean
 
 all: build-data
+
+build-raw:
+	$(PYTHON) $(TOOLS_DIR)/build_raw_dictionary.py
 
 build-json:
 	$(PYTHON) $(TOOLS_DIR)/build_site_dictionary.py
@@ -13,11 +16,12 @@ build-json:
 build-sqlite:
 	$(PYTHON) $(TOOLS_DIR)/build_site_sqlite.py
 
-build-data: build-json build-sqlite
+build-data: build-raw build-json build-sqlite
 
 serve:
 	cd $(SITE_DIR) && $(PHP) -S 127.0.0.1:8000
 
 clean:
+	rm -f $(SITE_DIR)/data/dictionary.json
 	rm -f $(SITE_DIR)/data/dictionary-indexed.json
 	rm -f $(SITE_DIR)/data/dictionary.sqlite
