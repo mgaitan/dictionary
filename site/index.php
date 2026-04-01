@@ -1,7 +1,36 @@
 <?php
 declare(strict_types=1);
 
-$databasePath = __DIR__ . '/data/dictionary.sqlite';
+$dictionaries = [
+    'de-es' => [
+        'databasePath' => __DIR__ . '/data/dictionary.sqlite',
+        'title' => 'Diccionario alemán-español',
+        'description' => 'Buscador PHP + SQLite para el diccionario alemán-español extraído desde UniLex.',
+        'directionLabel' => 'Alemán -> español',
+        'searchLabel' => 'Palabra alemana',
+        'placeholder' => 'Ej. Tabakqualm, Macher, verabschieden',
+        'examples' => ['Macher', 'Machbarkeit', 'Tabakqualm', 'Verabschiedung'],
+        'heroLead' => 'Búsqueda server-side en PHP sobre una base SQLite generada con scripts en Python. No hace falta descargar el diccionario entero en el navegador.',
+    ],
+    'es-de' => [
+        'databasePath' => __DIR__ . '/data/es-de-dictionary.sqlite',
+        'title' => 'Diccionario español-alemán',
+        'description' => 'Buscador PHP + SQLite para el diccionario español-alemán extraído desde UniLex.',
+        'directionLabel' => 'Español -> alemán',
+        'searchLabel' => 'Palabra española',
+        'placeholder' => 'Ej. hacer, mujer, antaño, abadesa',
+        'examples' => ['hacer', 'mujer', 'antaño', 'abadesa'],
+        'heroLead' => 'La misma interfaz sirve también para la dirección inversa. Cada diccionario usa su propia base SQLite generada desde los archivos originales.',
+    ],
+];
+
+$dictionaryId = (string) ($_GET['dict'] ?? 'de-es');
+if (!array_key_exists($dictionaryId, $dictionaries)) {
+    $dictionaryId = 'de-es';
+}
+
+$dictionary = $dictionaries[$dictionaryId];
+$databasePath = $dictionary['databasePath'];
 $query = trim((string) ($_GET['q'] ?? ''));
 $normalizedQuery = normalize_for_search($query);
 $page = max(1, (int) ($_GET['page'] ?? 1));
@@ -54,25 +83,8 @@ function normalize_for_search(string $value): string
     }
 
     $folded = strtr($trimmed, [
-        'Ä' => 'Ae',
-        'Ö' => 'Oe',
-        'Ü' => 'Ue',
-        'ä' => 'ae',
-        'ö' => 'oe',
-        'ü' => 'ue',
         'ß' => 'ss',
-        'Æ' => 'AE',
-        'æ' => 'ae',
-        'Œ' => 'OE',
-        'œ' => 'oe',
-        'Ø' => 'O',
-        'ø' => 'o',
-        'Å' => 'A',
-        'å' => 'a',
-        'Ñ' => 'N',
-        'ñ' => 'n',
-        'Ç' => 'C',
-        'ç' => 'c',
+        'ẞ' => 'ss',
         '·' => '',
     ]);
 
@@ -130,7 +142,7 @@ function search_entries(PDO $db, string $query, string $normalizedQuery, int $li
             e.headword,
             e.decoded_complete,
             CASE
-                WHEN e.headword = :raw_query THEN -1
+                WHEN e.normalized_headword = :exact_normalized THEN -1
                 ELSE 0
             END AS exact_headword_rank,
             MIN(
@@ -150,7 +162,6 @@ function search_entries(PDO $db, string $query, string $normalizedQuery, int $li
         OFFSET :offset
         SQL
     );
-    $statement->bindValue(':raw_query', $query, PDO::PARAM_STR);
     $statement->bindValue(':exact_normalized', $normalizedQuery, PDO::PARAM_STR);
     $statement->bindValue(':prefix', $prefix, PDO::PARAM_STR);
     $statement->bindValue(':contains', $contains, PDO::PARAM_STR);
@@ -245,12 +256,23 @@ function find_unresolved_index_entry(
     return $row ?: null;
 }
 
-function build_page_url(string $query, int $page): string
+function build_page_url(string $dictionaryId, string $query, int $page): string
 {
     return './index.php?' . http_build_query([
+        'dict' => $dictionaryId,
         'q' => $query,
         'page' => $page,
     ]);
+}
+
+function build_dictionary_url(string $dictionaryId, string $query = ''): string
+{
+    $params = ['dict' => $dictionaryId];
+    if ($query !== '') {
+        $params['q'] = $query;
+    }
+
+    return './index.php?' . http_build_query($params);
 }
 
 function build_page_window(int $page, int $totalPages, int $radius = 2): array
@@ -303,10 +325,10 @@ function render_gloss_html(string $gloss): string
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>UniLex Deutsch-Espanol</title>
+    <title><?= htmlspecialchars($dictionary['title'], ENT_QUOTES, 'UTF-8') ?></title>
     <meta
       name="description"
-      content="Buscador PHP + SQLite para el diccionario aleman-espanol extraido desde UniLex."
+      content="<?= htmlspecialchars($dictionary['description'], ENT_QUOTES, 'UTF-8') ?>"
     >
     <link rel="stylesheet" href="./styles.css">
   </head>
@@ -314,22 +336,31 @@ function render_gloss_html(string $gloss): string
     <main class="shell">
       <section class="hero">
         <p class="eyebrow">UniLex reconstruido</p>
-        <h1>Diccionario alemán-español</h1>
+        <div class="dictionary-switcher" aria-label="Dirección del diccionario">
+          <?php foreach ($dictionaries as $id => $item): ?>
+            <?php if ($id === $dictionaryId): ?>
+              <span class="dictionary-link current"><?= htmlspecialchars($item['directionLabel'], ENT_QUOTES, 'UTF-8') ?></span>
+            <?php else: ?>
+              <a class="dictionary-link" href="<?= htmlspecialchars(build_dictionary_url($id, $query), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($item['directionLabel'], ENT_QUOTES, 'UTF-8') ?></a>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+        <h1><?= htmlspecialchars($dictionary['title'], ENT_QUOTES, 'UTF-8') ?></h1>
         <p class="lede">
-          Búsqueda server-side en PHP sobre una base SQLite generada con scripts en Python.
-          No hace falta descargar el diccionario entero en el navegador.
+          <?= htmlspecialchars($dictionary['heroLead'], ENT_QUOTES, 'UTF-8') ?>
         </p>
       </section>
 
       <section class="panel controls" aria-label="Controles de búsqueda">
         <form class="search-form" method="get" action="./index.php">
+          <input type="hidden" name="dict" value="<?= htmlspecialchars($dictionaryId, ENT_QUOTES, 'UTF-8') ?>">
           <div class="search-box">
-            <label for="search-input">Palabra fuente</label>
+            <label for="search-input"><?= htmlspecialchars($dictionary['searchLabel'], ENT_QUOTES, 'UTF-8') ?></label>
             <input
               id="search-input"
               name="q"
               type="search"
-              placeholder="Ej. Tabakqualm, Macher, verabschieden"
+              placeholder="<?= htmlspecialchars($dictionary['placeholder'], ENT_QUOTES, 'UTF-8') ?>"
               autocomplete="off"
               spellcheck="false"
               value="<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>"
@@ -338,7 +369,7 @@ function render_gloss_html(string $gloss): string
 
           <div class="actions">
             <button type="submit">Buscar</button>
-            <a class="file-button" href="./index.php">Limpiar</a>
+            <a class="file-button" href="<?= htmlspecialchars(build_dictionary_url($dictionaryId), ENT_QUOTES, 'UTF-8') ?>">Limpiar</a>
           </div>
         </form>
 
@@ -346,7 +377,7 @@ function render_gloss_html(string $gloss): string
           <?php if ($error !== null): ?>
             <?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?>
           <?php elseif ($normalizedQuery === ''): ?>
-            <?= number_format($stats['entries']) ?> entradas y <?= number_format($stats['senses']) ?> acepciones listas para consultar.
+            <?= htmlspecialchars($dictionary['directionLabel'], ENT_QUOTES, 'UTF-8') ?>: <?= number_format($stats['entries']) ?> entradas y <?= number_format($stats['senses']) ?> acepciones listas para consultar.
           <?php else: ?>
             <?= number_format($displayedResultCount) ?> resultado<?= $displayedResultCount === 1 ? '' : 's' ?> visible<?= $displayedResultCount === 1 ? '' : 's' ?> para “<?= htmlspecialchars($query, ENT_QUOTES, 'UTF-8') ?>”.
           <?php endif; ?>
@@ -372,8 +403,11 @@ function render_gloss_html(string $gloss): string
             <div class="empty-state">La aplicación no pudo abrir la base de datos.</div>
           <?php elseif ($normalizedQuery === ''): ?>
             <div class="empty-state">
-              Probá con <code>Macher</code>, <code>Machbarkeit</code>,
-              <code>Tabakqualm</code> o <code>Verabschiedung</code>.
+              Probá con
+              <?php foreach ($dictionary['examples'] as $index => $example): ?>
+                <?php if ($index > 0): ?><?= $index === count($dictionary['examples']) - 1 ? ' o ' : ', ' ?><?php endif; ?>
+                <code><?= htmlspecialchars($example, ENT_QUOTES, 'UTF-8') ?></code>
+              <?php endforeach; ?>.
             </div>
           <?php else: ?>
             <?php if ($fallbackIndexEntry !== null): ?>
@@ -443,19 +477,19 @@ function render_gloss_html(string $gloss): string
             <?php if ($totalPages > 1): ?>
               <nav class="pagination" aria-label="Paginación de resultados">
                 <?php if ($page > 1): ?>
-                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $page - 1), ENT_QUOTES, 'UTF-8') ?>">Anterior</a>
+                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($dictionaryId, $query, $page - 1), ENT_QUOTES, 'UTF-8') ?>">Anterior</a>
                 <?php endif; ?>
 
                 <?php foreach (build_page_window($page, $totalPages) as $pageNumber): ?>
                   <?php if ($pageNumber === $page): ?>
                     <span class="page-link current"><?= $pageNumber ?></span>
                   <?php else: ?>
-                    <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $pageNumber), ENT_QUOTES, 'UTF-8') ?>"><?= $pageNumber ?></a>
+                    <a class="page-link" href="<?= htmlspecialchars(build_page_url($dictionaryId, $query, $pageNumber), ENT_QUOTES, 'UTF-8') ?>"><?= $pageNumber ?></a>
                   <?php endif; ?>
                 <?php endforeach; ?>
 
                 <?php if ($page < $totalPages): ?>
-                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($query, $page + 1), ENT_QUOTES, 'UTF-8') ?>">Siguiente</a>
+                  <a class="page-link" href="<?= htmlspecialchars(build_page_url($dictionaryId, $query, $page + 1), ENT_QUOTES, 'UTF-8') ?>">Siguiente</a>
                 <?php endif; ?>
               </nav>
             <?php endif; ?>

@@ -16,6 +16,12 @@ ALLOWED_PUNCT = set(" ,-;/()[]'!?:")
 DEFAULT_RECORD_TYPE = 0x8E
 
 
+def parse_record_type(raw: str) -> int | None:
+    if raw.lower() in {"none", "all", "*"}:
+        return None
+    return int(raw, 0)
+
+
 def looks_reasonable_headword(headword: str) -> bool:
     if not headword:
         return False
@@ -148,9 +154,9 @@ def build_parser() -> argparse.ArgumentParser:
     export_index.add_argument("--leo", default="slagrods.leo")
     export_index.add_argument(
         "--record-type",
-        type=lambda raw: int(raw, 0),
+        type=parse_record_type,
         default=DEFAULT_RECORD_TYPE,
-        help="IDO record type to keep (default: 0x8e, primary headwords)",
+        help='IDO record type to keep (default: 0x8e, primary headwords). Use "none" to keep all authentic records.',
     )
     export_index.add_argument(
         "--output",

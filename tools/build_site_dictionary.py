@@ -7,7 +7,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
+
+
+def normalize_headword(value: str) -> str:
+    return re.sub(r"[^\w]+", "", str(value).casefold().replace("·", ""))
 
 
 def to_string_list(value: object) -> list[str]:
@@ -65,6 +70,29 @@ def canonicalize_senses(raw_senses: list[object]) -> list[dict[str, object]]:
     return senses
 
 
+def should_keep_variant(headword: str, candidate: str) -> bool:
+    candidate = candidate.strip()
+    if not candidate or candidate == headword:
+        return False
+
+    headword_key = normalize_headword(headword)
+    candidate_key = normalize_headword(candidate)
+    if not headword_key or not candidate_key or candidate_key == headword_key:
+        return False
+    if len(candidate_key) < 3:
+        return False
+    if candidate_key in headword_key or headword_key in candidate_key:
+        return True
+
+    prefix = 0
+    for left, right in zip(headword_key, candidate_key):
+        if left != right:
+            break
+        prefix += 1
+
+    return prefix >= 4
+
+
 def build_dictionary(
     raw_dictionary_path: Path,
     index_path: Path,
@@ -84,6 +112,7 @@ def build_dictionary(
 
     for raw_entry in raw_entries:
         raw_headword = str(raw_entry.get("headword") or "").strip()
+        index_headword = ""
         source_offset = raw_entry.get("sourceOffset")
         index_entry = index_by_offset.get(source_offset)
 
@@ -94,7 +123,8 @@ def build_dictionary(
             headword = raw_headword
         else:
             matched_offsets += 1
-            headword = str(index_entry["headword"]).strip()
+            index_headword = str(index_entry["headword"]).strip()
+            headword = raw_headword or index_headword
 
         if not headword:
             continue
@@ -118,9 +148,17 @@ def build_dictionary(
         if (
             raw_headword
             and raw_headword != headword
+            and should_keep_variant(headword, raw_headword)
             and raw_headword not in entry["variants"]
         ):
             entry["variants"].append(raw_headword)
+        if (
+            index_headword
+            and index_headword != headword
+            and should_keep_variant(headword, index_headword)
+            and index_headword not in entry["variants"]
+        ):
+            entry["variants"].append(index_headword)
 
         if source_offset is not None and source_offset not in entry["sourceOffsets"]:
             entry["sourceOffsets"].append(source_offset)

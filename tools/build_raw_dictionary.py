@@ -11,31 +11,68 @@ import re
 from pathlib import Path
 
 import pefile
-
 from analyze_slagro import DEFAULT_RECORD_TYPE, build_index
 from inspect_unilex import ROOT, read_page
 
-DEFAULT_DLL = Path('/home/tin/lab/UniLex/UniLex - Brandstetter Slaby/program/aclexman.dll')
-DEFAULT_OUTPUT = Path('/home/tin/lab/UniLex/site/data/dictionary.json')
+DEFAULT_DLL = Path(
+    "/home/tin/lab/UniLex/UniLex - Brandstetter Slaby/program/aclexman.dll"
+)
+DEFAULT_OUTPUT = Path("/home/tin/lab/UniLex/site/data/dictionary.json")
 DEFAULT_CODEBOOK_RVA = 0x10042050
 CODEBOOK_ENTRY_COUNT = 256
 CODEBOOK_ENTRY_SIZE = 5
+GRAMMAR_SPLIT_RE = re.compile(
+    r"\s+(?:m/f|f/m|m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)\b",
+    re.IGNORECASE,
+)
 
 
 def normalize_headword(value: str) -> str:
-    normalized = value.casefold().replace('·', '')
-    return re.sub(r'[^\w]+', '', normalized)
+    normalized = value.casefold().replace("·", "")
+    return re.sub(r"[^\w]+", "", normalized)
+
+
+def derive_headword_from_visible_text(visible_text: str) -> str:
+    first_line = next(
+        (line.strip() for line in visible_text.splitlines() if line.strip()),
+        "",
+    )
+    if not first_line:
+        return ""
+
+    candidate = re.sub(r"^\d+", "", first_line).strip()
+    if not candidate:
+        return ""
+
+    candidate = candidate.split(":", 1)[0].strip()
+    candidate = re.split(r"\s*(?:<|\[|®)", candidate, maxsplit=1)[0].strip()
+    candidate = GRAMMAR_SPLIT_RE.split(candidate, maxsplit=1)[0].strip()
+    candidate = candidate.rstrip(" ,;")
+    candidate = re.sub(r"^\d+", "", candidate).strip()
+    return candidate.replace("·", "")
+
+
+def parse_record_type(value: str) -> int | None:
+    if value.lower() in {"none", "all", "*"}:
+        return None
+    return int(value, 0)
 
 
 def build_decoder_table(dll_path: Path, codebook_rva: int) -> list[tuple[int, int]]:
     pe = pefile.PE(str(dll_path))
-    blob = pe.get_data(codebook_rva - pe.OPTIONAL_HEADER.ImageBase, CODEBOOK_ENTRY_COUNT * CODEBOOK_ENTRY_SIZE)
+    blob = pe.get_data(
+        codebook_rva - pe.OPTIONAL_HEADER.ImageBase,
+        CODEBOOK_ENTRY_COUNT * CODEBOOK_ENTRY_SIZE,
+    )
     if len(blob) != CODEBOOK_ENTRY_COUNT * CODEBOOK_ENTRY_SIZE:
-        raise ValueError(f'short codebook at RVA 0x{codebook_rva:x}')
+        raise ValueError(f"short codebook at RVA 0x{codebook_rva:x}")
 
     return [
         (
-            int.from_bytes(blob[index * CODEBOOK_ENTRY_SIZE : index * CODEBOOK_ENTRY_SIZE + 4], 'little'),
+            int.from_bytes(
+                blob[index * CODEBOOK_ENTRY_SIZE : index * CODEBOOK_ENTRY_SIZE + 4],
+                "little",
+            ),
             blob[index * CODEBOOK_ENTRY_SIZE + 4],
         )
         for index in range(CODEBOOK_ENTRY_COUNT)
@@ -66,7 +103,9 @@ def build_decoder_tree(table: list[tuple[int, int]]) -> list[list[int]]:
     return nodes
 
 
-def decode_payload(tree: list[list[int]], payload: bytes, *, limit: int = 20000) -> tuple[bytes, bool]:
+def decode_payload(
+    tree: list[list[int]], payload: bytes, *, limit: int = 20000
+) -> tuple[bytes, bool]:
     out: list[int] = []
     cursor = 0
 
@@ -91,11 +130,13 @@ def decode_payload(tree: list[list[int]], payload: bytes, *, limit: int = 20000)
 
 
 def strip_formatting(decoded: bytes) -> tuple[str, str, str]:
-    raw_text = decoded.decode('latin-1', errors='replace')
-    visible_part, _, metadata_part = raw_text.partition('\x01')
-    visible_text = re.sub(r'@.', '', visible_part)
-    visible_text = visible_text.replace('\r\n', '\n').replace('\r', '\n')
-    visible_text = '\n'.join(line.rstrip() for line in visible_text.splitlines()).strip()
+    raw_text = decoded.decode("latin-1", errors="replace")
+    visible_part, _, metadata_part = raw_text.partition("\x01")
+    visible_text = re.sub(r"@.", "", visible_part)
+    visible_text = visible_text.replace("\r\n", "\n").replace("\r", "\n")
+    visible_text = "\n".join(
+        line.rstrip() for line in visible_text.splitlines()
+    ).strip()
     return visible_text, raw_text, metadata_part
 
 
@@ -103,7 +144,9 @@ def headword_matches(headword: str, visible_text: str, metadata_part: str) -> bo
     target = normalize_headword(headword)
     if not target:
         return False
-    return target in normalize_headword(visible_text) or target in normalize_headword(metadata_part)
+    return target in normalize_headword(visible_text) or target in normalize_headword(
+        metadata_part
+    )
 
 
 def build_raw_dictionary(
@@ -122,10 +165,16 @@ def build_raw_dictionary(
     skipped_empty = 0
     skipped_headword = 0
     page_errors = 0
+    derived_headword_count = 0
+    fallback_index_headword_count = 0
+    seen_offsets: set[int] = set()
 
     for index_entry in index_entries:
-        leo_offset = int(index_entry['leo_offset'])
-        headword = str(index_entry['headword']).strip()
+        leo_offset = int(index_entry["leo_offset"])
+        if leo_offset in seen_offsets:
+            continue
+        seen_offsets.add(leo_offset)
+        index_headword = str(index_entry["headword"]).strip()
 
         try:
             page = read_page(leo_bytes, leo_offset)
@@ -137,20 +186,36 @@ def build_raw_dictionary(
             skipped_empty += 1
             continue
 
-        payload = leo_bytes[page.payload_offset : page.payload_offset + page.payload_len]
+        payload = leo_bytes[
+            page.payload_offset : page.payload_offset + page.payload_len
+        ]
         decoded, decoded_complete = decode_payload(tree, payload)
         visible_text, raw_text, metadata_part = strip_formatting(decoded)
 
         if not visible_text or not any(char.isalpha() for char in visible_text):
             skipped_empty += 1
             continue
-        if not headword_matches(headword, visible_text, metadata_part):
+
+        derived_headword = derive_headword_from_visible_text(visible_text)
+        headword = derived_headword or index_headword
+
+        if derived_headword:
+            derived_headword_count += 1
+        else:
+            fallback_index_headword_count += 1
+
+        if not headword:
+            skipped_headword += 1
+            continue
+        if not derived_headword and not headword_matches(
+            index_headword, visible_text, metadata_part
+        ):
             skipped_headword += 1
             continue
 
         senses = [
-            {'glosses': [line.strip()]}
-            for line in visible_text.split('\n')
+            {"glosses": [line.strip()]}
+            for line in visible_text.split("\n")
             if line.strip()
         ]
         if not senses:
@@ -159,42 +224,57 @@ def build_raw_dictionary(
 
         exported_entries.append(
             {
-                'headword': headword,
-                'sourceOffset': leo_offset,
-                'pageSpan': int(index_entry['page_span']),
-                'decodedComplete': decoded_complete,
-                'senses': senses,
+                "headword": headword,
+                "indexHeadword": index_headword,
+                "sourceOffset": leo_offset,
+                "pageSpan": int(index_entry["page_span"]),
+                "decodedComplete": decoded_complete,
+                "senses": senses,
             }
         )
 
-    exported_entries.sort(key=lambda entry: (entry['headword'].casefold(), entry['sourceOffset']))
+    exported_entries.sort(
+        key=lambda entry: (entry["headword"].casefold(), entry["sourceOffset"])
+    )
 
     return {
-        'source': {
-            'ido': str(ido_path),
-            'leo': str(leo_path),
-            'dll': str(dll_path),
-            'codebook_rva': f'0x{codebook_rva:x}',
+        "source": {
+            "ido": str(ido_path),
+            "leo": str(leo_path),
+            "dll": str(dll_path),
+            "codebook_rva": f"0x{codebook_rva:x}",
         },
-        'stats': {
-            'index_entries': len(index_entries),
-            'exported_entries': len(exported_entries),
-            'skipped_empty': skipped_empty,
-            'skipped_headword': skipped_headword,
-            'page_errors': page_errors,
+        "stats": {
+            "index_entries": len(index_entries),
+            "unique_offsets": len(seen_offsets),
+            "exported_entries": len(exported_entries),
+            "skipped_empty": skipped_empty,
+            "skipped_headword": skipped_headword,
+            "page_errors": page_errors,
+            "derived_headword_count": derived_headword_count,
+            "fallback_index_headword_count": fallback_index_headword_count,
         },
-        'entries': exported_entries,
+        "entries": exported_entries,
     }
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description='Build raw dictionary.json directly from IDO/LEO')
-    parser.add_argument('--ido', default=str(ROOT / 'slagrods.ido'))
-    parser.add_argument('--leo', default=str(ROOT / 'slagrods.leo'))
-    parser.add_argument('--dll', default=str(DEFAULT_DLL))
-    parser.add_argument('--output', default=str(DEFAULT_OUTPUT))
-    parser.add_argument('--codebook-rva', type=lambda raw: int(raw, 0), default=DEFAULT_CODEBOOK_RVA)
-    parser.add_argument('--record-type', type=lambda raw: int(raw, 0), default=DEFAULT_RECORD_TYPE)
+    parser = argparse.ArgumentParser(
+        description="Build raw dictionary.json directly from IDO/LEO"
+    )
+    parser.add_argument("--ido", default=str(ROOT / "slagrods.ido"))
+    parser.add_argument("--leo", default=str(ROOT / "slagrods.leo"))
+    parser.add_argument("--dll", default=str(DEFAULT_DLL))
+    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument(
+        "--codebook-rva", type=lambda raw: int(raw, 0), default=DEFAULT_CODEBOOK_RVA
+    )
+    parser.add_argument(
+        "--record-type",
+        type=parse_record_type,
+        default=DEFAULT_RECORD_TYPE,
+        help='IDO record type to keep, or "none" to keep every authentic record',
+    )
     return parser.parse_args()
 
 
@@ -210,7 +290,7 @@ def main() -> int:
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding='utf-8')
+    output_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
 
     print(
         f"built {payload['stats']['exported_entries']} raw entries from"
@@ -219,5 +299,5 @@ def main() -> int:
     return 0
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())

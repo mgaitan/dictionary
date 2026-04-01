@@ -59,6 +59,43 @@ label {
     padding: 0.5rem 0 1.75rem;
 }
 
+.dictionary-switcher {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+}
+
+.dictionary-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.4rem;
+    padding: 0.55rem 0.9rem;
+    border: 1px solid rgba(74, 55, 25, 0.16);
+    border-radius: 999px;
+    background: rgba(255, 251, 243, 0.8);
+    color: var(--text);
+    text-decoration: none;
+    transition:
+        transform 180ms ease,
+        border-color 180ms ease,
+        background 180ms ease;
+}
+
+.dictionary-link:hover {
+    transform: translateY(-1px);
+    border-color: rgba(159, 63, 25, 0.32);
+    background: #fffdf8;
+}
+
+.dictionary-link.current {
+    border-color: rgba(159, 63, 25, 0.38);
+    background: var(--accent-soft);
+    color: #6d2a10;
+    font-weight: 700;
+}
+
 .eyebrow {
     margin: 0 0 0.75rem;
     text-transform: uppercase;
