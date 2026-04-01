@@ -26,7 +26,7 @@ dictionary/
 site/data/
   dictionary.sqlite      alemán -> español
   es-de-dictionary.sqlite español -> alemán
-  *.json                 artefactos intermedios y de build
+  *.json                 artefactos intermedios locales, no versionados
 
 tools/
   analyze_slagro.py      exporta índices auténticos desde IDO/LEO
@@ -192,6 +192,17 @@ entrypoint = "dictionary.app:app"
 
 El proyecto incluye `uv.lock`, por lo que las dependencias quedan pinneadas
 también en deploy.
+
+## Artefactos versionados
+
+El repo publica solo las dos bases SQLite listas para consulta web.
+
+- `site/data/dictionary.sqlite`
+- `site/data/es-de-dictionary.sqlite`
+
+Los JSON intermedios de extracción y limpieza siguen existiendo como parte del
+pipeline, pero quedan ignorados en git y se regeneran localmente cuando hace
+falta.
 
 ## Documentación adicional
 
