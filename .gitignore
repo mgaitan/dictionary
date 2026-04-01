@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+
+UniLex - Brandstetter Slaby/
+UniLex - Brandstetter Slaby-20220623T125347Z-001.zip
+
+site/data/dictionary.json
+site/data/index.json
