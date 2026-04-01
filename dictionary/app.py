@@ -12,6 +12,7 @@ from dictionary.search import (
     DICTIONARIES,
     PAGE_LIMIT,
     build_dictionary_url,
+    build_gloss_anchor,
     build_page_url,
     build_page_window,
     build_sense_anchor,
@@ -26,12 +27,23 @@ from dictionary.search import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
+STATIC_DIR = BASE_DIR / "static"
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["render_gloss_html"] = render_gloss_html
 templates.env.globals["build_page_url"] = build_page_url
 templates.env.globals["build_dictionary_url"] = build_dictionary_url
 templates.env.globals["build_page_window"] = build_page_window
 templates.env.globals["build_sense_anchor"] = build_sense_anchor
+templates.env.globals["build_gloss_anchor"] = build_gloss_anchor
+
+
+def static_asset_url(request: Request, path: str) -> str:
+    asset_path = STATIC_DIR / path
+    version = str(int(asset_path.stat().st_mtime)) if asset_path.is_file() else "0"
+    return str(request.url_for("static", path=path).include_query_params(v=version))
+
+
+templates.env.globals["static_asset_url"] = static_asset_url
 
 app = FastAPI(title="dictionary")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")

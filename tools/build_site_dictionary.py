@@ -10,6 +10,10 @@ import json
 import re
 from pathlib import Path
 
+TOP_LEVEL_HEADING_RE = re.compile(r"^[A-Z]\)\s+")
+NUMBERED_HEADING_RE = re.compile(r"^\d+\.\s+")
+LETTER_HEADING_RE = re.compile(r"^[a-z]\)\s+")
+
 
 def normalize_headword(value: str) -> str:
     return re.sub(r"[^\w]+", "", str(value).casefold().replace("·", ""))
@@ -24,7 +28,115 @@ def to_string_list(value: object) -> list[str]:
     return [text] if text else []
 
 
-def canonicalize_senses(raw_senses: list[object]) -> list[dict[str, object]]:
+def extract_raw_lines(raw_senses: list[object]) -> list[str]:
+    lines: list[str] = []
+    for raw_sense in raw_senses:
+        if isinstance(raw_sense, str):
+            text = raw_sense.strip()
+            if text:
+                lines.append(text)
+            continue
+
+        source = str(
+            raw_sense.get("source")
+            or raw_sense.get("sourceText")
+            or raw_sense.get("sourceNote")
+            or ""
+        ).strip()
+        if source:
+            lines.append(source)
+
+        for field in ("glosses", "definitions", "translations", "translation"):
+            for item in to_string_list(raw_sense.get(field)):
+                lines.append(item)
+
+    return [line for line in lines if line.strip()]
+
+
+def build_structured_senses(lines: list[str]) -> list[dict[str, object]]:
+    if not lines:
+        return []
+
+    senses: list[dict[str, object]] = []
+    current: dict[str, object] | None = None
+    level_one = ""
+    level_two = ""
+    level_three = ""
+
+    def flush() -> None:
+        nonlocal current
+        if current and current["glosses"]:
+            senses.append(current)
+        current = None
+
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line:
+            continue
+
+        if TOP_LEVEL_HEADING_RE.match(line):
+            flush()
+            level_one = line
+            level_two = ""
+            level_three = ""
+            continue
+
+        if NUMBERED_HEADING_RE.match(line):
+            flush()
+            level_two = line
+            level_three = ""
+            continue
+
+        if LETTER_HEADING_RE.match(line):
+            flush()
+            level_three = line
+            continue
+
+        if current is None:
+            current = {
+                "tags": [],
+                "source": " · ".join(
+                    heading
+                    for heading in (level_one, level_two, level_three)
+                    if heading
+                ),
+                "glosses": [],
+            }
+
+        current["glosses"].append(line)
+
+    flush()
+
+    if senses:
+        return senses
+
+    return [
+        {
+            "tags": [],
+            "source": "",
+            "glosses": lines,
+        }
+    ]
+
+
+def is_redundant_headword_line(headword: str, line: str) -> bool:
+    if not headword or not line:
+        return False
+    normalized_line = normalize_headword(line.rstrip(":"))
+    return normalized_line == normalize_headword(headword)
+
+
+def canonicalize_senses(
+    raw_senses: list[object],
+    *,
+    headword: str = "",
+) -> list[dict[str, object]]:
+    raw_lines = extract_raw_lines(raw_senses)
+    if raw_lines and is_redundant_headword_line(headword, raw_lines[0]):
+        raw_lines = raw_lines[1:]
+    if raw_lines:
+        return build_structured_senses(raw_lines)
+
     senses: list[dict[str, object]] = []
     seen: set[tuple[tuple[str, ...], tuple[str, ...], str]] = set()
 
@@ -129,7 +241,10 @@ def build_dictionary(
         if not headword:
             continue
 
-        senses = canonicalize_senses(raw_entry.get("senses") or [])
+        senses = canonicalize_senses(
+            raw_entry.get("senses") or [],
+            headword=headword,
+        )
         if not senses:
             continue
 
@@ -183,13 +298,6 @@ def build_dictionary(
         entry.pop("_sense_keys", None)
         entry["variants"].sort(key=str.casefold)
         entry["sourceOffsets"].sort()
-        entry["senses"].sort(
-            key=lambda sense: (
-                " ".join(sense["glosses"]).casefold(),
-                " ".join(sense["tags"]).casefold(),
-                sense["source"].casefold(),
-            )
-        )
         entries.append(entry)
 
     entries.sort(key=lambda entry: entry["headword"].casefold())

@@ -7,13 +7,10 @@
         <meta name="description" content="{{ dictionary.description }}" />
         <link
             rel="stylesheet"
-            href="{{ request.url_for('static', path='styles.css') }}"
+            href="{{ static_asset_url(request, 'styles.css') }}"
         />
         {% if normalized_query %}
-        <script
-            defer
-            src="{{ request.url_for('static', path='app.js') }}"
-        ></script>
+        <script defer src="{{ static_asset_url(request, 'app.js') }}"></script>
         {% endif %}
     </head>
     <body>
@@ -172,9 +169,10 @@
                         </header>
 
                         <ol class="sense-list">
-                            {% for sense in entry.senses %} {% set sense_anchor
-                            = build_sense_anchor(dictionary_id, entry.headword,
-                            entry_index, loop.index0) %}
+                            {% for sense in entry.senses %} {% set sense_index =
+                            loop.index0 %} {% set sense_anchor =
+                            build_sense_anchor(dictionary_id, entry.headword,
+                            entry_index, sense_index) %}
                             <li class="sense-item" id="{{ sense_anchor }}">
                                 <a
                                     class="sense-permalink"
@@ -194,11 +192,23 @@
                                 {% endif %}
 
                                 <ul class="sense-glosses">
-                                    {% for gloss in sense.glosses %}
+                                    {% for gloss in sense.glosses %} {% set
+                                    gloss_anchor =
+                                    build_gloss_anchor(dictionary_id,
+                                    entry.headword, entry_index, sense_index,
+                                    loop.index0) %}
                                     <li
                                         class="gloss-line"
+                                        id="{{ gloss_anchor }}"
                                         data-dictionary-id="{{ dictionary.gloss_lookup_dictionary_id }}"
                                     >
+                                        <a
+                                            class="gloss-permalink"
+                                            href="#{{ gloss_anchor }}"
+                                            aria-label="Enlace directo a esta línea"
+                                            title="Copiar enlace a esta línea"
+                                            >#</a
+                                        >
                                         {{ gloss|render_gloss_html }}
                                     </li>
                                     {% endfor %}

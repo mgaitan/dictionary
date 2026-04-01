@@ -380,6 +380,17 @@ def build_sense_anchor(
     return f"{dictionary_id}-{slug}-e{entry_index + 1}-s{sense_index + 1}"
 
 
+def build_gloss_anchor(
+    dictionary_id: str,
+    headword: str,
+    entry_index: int,
+    sense_index: int,
+    gloss_index: int,
+) -> str:
+    sense_anchor = build_sense_anchor(dictionary_id, headword, entry_index, sense_index)
+    return f"{sense_anchor}-g{gloss_index + 1}"
+
+
 def lookup_term(
     connection: sqlite3.Connection,
     dictionary_id: str,
