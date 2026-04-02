@@ -110,50 +110,7 @@
                         <code>{{ example }}</code>
                         {% endfor %}.
                     </div>
-                    {% else %} {% if fallback_index_entry %}
-                    <article class="entry-card unresolved-card">
-                        <header class="entry-header">
-                            <div>
-                                <h2 class="entry-title">
-                                    {{ fallback_index_entry.headword }}
-                                </h2>
-                                <p class="entry-subtitle">
-                                    Entrada detectada en el índice original,
-                                    pendiente de reconstrucción automática
-                                </p>
-                            </div>
-                        </header>
-
-                        <ol class="sense-list">
-                            <li class="sense-item">
-                                <p class="sense-source">
-                                    El lema existe en el índice
-                                    <code>IDO</code>, pero todavía no pude
-                                    extraer su artículo desde <code>LEO</code>.
-                                </p>
-                                <ul class="sense-glosses">
-                                    <li>
-                                        offset LEO:
-                                        <code
-                                            >0x{{
-                                            "%x"|format(fallback_index_entry.leo_offset)
-                                            }}</code
-                                        >
-                                    </li>
-                                    <li>
-                                        span de bloque:
-                                        <code
-                                            >0x{{
-                                            "%x"|format(fallback_index_entry.page_span)
-                                            }}</code
-                                        >
-                                    </li>
-                                </ul>
-                            </li>
-                        </ol>
-                    </article>
-                    {% endif %} {% if not results and not fallback_index_entry
-                    %}
+                    {% else %} {% if not results %}
                     <div class="empty-state">
                         No encontré coincidencias para “{{ query }}”.
                     </div>
