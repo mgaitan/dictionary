@@ -5,7 +5,8 @@
   }
 
   const dictionaryId = glossLines[0].dataset.dictionaryId || "de-es";
-  const tokenPattern = /\p{L}[\p{L}\p{M}·'’-]*/gu;
+  const sameDictionaryId = glossLines[0].dataset.sameDictionaryId || "";
+  const tokenPattern = /\p{L}[\p{L}\p{M}·''-]*/gu;
   const uniqueTerms = new Map();
 
   function normalizeToken(token) {
@@ -68,7 +69,7 @@
     nodes.forEach(callback);
   }
 
-  function linkifyNode(node, linkMap) {
+  function linkifyNode(node, inverseLinkMap, sameLinkMap) {
     const text = node.nodeValue;
     if (!text) {
       return;
@@ -92,13 +93,21 @@
       }
 
       const normalized = normalizeToken(token);
-      const linked = linkMap.get(normalized);
-      if (linked) {
+      const inverseLinked = inverseLinkMap.get(normalized);
+      const sameLinked = sameLinkMap.get(normalized);
+      if (inverseLinked) {
         const anchor = document.createElement("a");
         anchor.className = "gloss-link";
-        anchor.href = linked.url;
+        anchor.href = inverseLinked.url;
         anchor.textContent = token;
-        anchor.title = `Buscar ${linked.headword}`;
+        anchor.title = `Buscar ${inverseLinked.headword}`;
+        fragment.append(anchor);
+      } else if (sameLinked) {
+        const anchor = document.createElement("a");
+        anchor.className = "gloss-link gloss-link-same";
+        anchor.href = sameLinked.url;
+        anchor.textContent = token;
+        anchor.title = `Buscar ${sameLinked.headword}`;
         fragment.append(anchor);
       } else {
         fragment.append(token);
@@ -115,36 +124,62 @@
     node.parentNode?.replaceChild(fragment, node);
   }
 
-  fetch(`/api/linkable-terms?dict=${encodeURIComponent(dictionaryId)}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify(terms),
-  })
-    .then((response) => {
+  function fetchLinkableTerms(dictId) {
+    return fetch(`/api/linkable-terms?dict=${encodeURIComponent(dictId)}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(terms),
+    }).then((response) => {
       if (!response.ok) {
-        throw new Error("lookup_failed");
+        console.warn(`linkable-terms lookup failed for dict=${dictId}: ${response.status}`);
+        return { results: {} };
       }
       return response.json();
-    })
-    .then((payload) => {
-      const results = payload.results || {};
-      const linkMap = new Map();
-      for (const [normalized, value] of Object.entries(results)) {
+    });
+  }
+
+  const requests = [fetchLinkableTerms(dictionaryId)];
+  if (sameDictionaryId && sameDictionaryId !== dictionaryId) {
+    requests.push(fetchLinkableTerms(sameDictionaryId));
+  } else {
+    requests.push(Promise.resolve({ results: {} }));
+  }
+
+  Promise.all(requests)
+    .then(([inversePayload, samePayload]) => {
+      const inverseLinkMap = new Map();
+      for (const [normalized, value] of Object.entries(
+        inversePayload.results || {},
+      )) {
         if (!value || !value.url) {
           continue;
         }
-        linkMap.set(normalized, value);
+        inverseLinkMap.set(normalized, value);
       }
 
-      if (linkMap.size === 0) {
+      const sameLinkMap = new Map();
+      for (const [normalized, value] of Object.entries(
+        samePayload.results || {},
+      )) {
+        // Inverse links take priority: skip same-language matches that are
+        // already covered by a cross-dictionary link.
+        if (!value || !value.url || inverseLinkMap.has(normalized)) {
+          continue;
+        }
+        sameLinkMap.set(normalized, value);
+      }
+
+      if (inverseLinkMap.size === 0 && sameLinkMap.size === 0) {
         return;
       }
 
       glossLines.forEach((line) => {
-        walkTextNodes(line, (node) => linkifyNode(node, linkMap));
+        walkTextNodes(line, (node) =>
+          linkifyNode(node, inverseLinkMap, sameLinkMap),
+        );
       });
     })
     .catch(() => {});

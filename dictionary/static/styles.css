@@ -423,6 +423,16 @@ label {
     border-radius: 0.2rem;
 }
 
+.gloss-link-same {
+    text-decoration-color: rgba(46, 83, 142, 0.28);
+}
+
+.gloss-link-same:hover,
+.gloss-link-same:focus-visible {
+    text-decoration-color: rgba(46, 83, 142, 0.55);
+    background: rgba(46, 83, 142, 0.06);
+}
+
 .gloss-note,
 .gloss-label,
 .gloss-grammar,
