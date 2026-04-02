@@ -54,7 +54,7 @@
                             id="search-input"
                             name="q"
                             type="search"
-                            placeholder="{{ dictionary.placeholder }}"
+                            placeholder="{{ random_placeholder }}"
                             autocomplete="off"
                             spellcheck="false"
                             value="{{ query }}"
@@ -104,7 +104,7 @@
                     </div>
                     {% elif not normalized_query %}
                     <div class="empty-state">
-                        Probá con {% for example in dictionary.examples %} {% if
+                        Probá con {% for example in random_examples %} {% if
                         not loop.first %}{% if loop.last %} o {% else %}, {%
                         endif %}{% endif %}
                         <code>{{ example }}</code>
