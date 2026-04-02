@@ -16,7 +16,6 @@ from dictionary.search import (
     build_page_url,
     build_page_window,
     build_sense_anchor,
-    find_unresolved_index_entry,
     get_dictionary,
     get_random_examples,
     load_stats,
@@ -66,7 +65,6 @@ def homepage(
 
     error = None
     results: list[dict[str, object]] = []
-    fallback_index_entry: dict[str, object] | None = None
     total_results = 0
     total_pages = 0
     displayed_result_count = 0
@@ -102,14 +100,7 @@ def homepage(
                             page=page,
                         )
                     results = list(search["entries"])
-                    fallback_index_entry = find_unresolved_index_entry(
-                        connection,
-                        normalized_query,
-                        results,
-                    )
-                    displayed_result_count = len(results) + (
-                        1 if fallback_index_entry is not None else 0
-                    )
+                    displayed_result_count = len(results)
         except Exception as exc:  # pragma: no cover - surface error in UI
             error = str(exc)
 
@@ -122,7 +113,6 @@ def homepage(
         "normalized_query": normalized_query,
         "page": page,
         "results": results,
-        "fallback_index_entry": fallback_index_entry,
         "total_results": total_results,
         "total_pages": total_pages,
         "displayed_result_count": displayed_result_count,

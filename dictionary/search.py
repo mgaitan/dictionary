@@ -356,37 +356,6 @@ def search_entries(
     }
 
 
-def find_unresolved_index_entry(
-    connection: sqlite3.Connection,
-    normalized_query: str,
-    results: list[dict[str, Any]],
-) -> dict[str, Any] | None:
-    for entry in results:
-        if normalize_for_search(str(entry["headword"])) == normalized_query:
-            return None
-
-    row = connection.execute(
-        """
-        SELECT headword, leo_offset, page_span
-        FROM index_entries
-        WHERE normalized_headword = ?
-          AND has_decoded_entry = 0
-        ORDER BY leo_offset ASC
-        LIMIT 1
-        """,
-        (normalized_query,),
-    ).fetchone()
-
-    if row is None:
-        return None
-
-    return {
-        "headword": str(row["headword"]),
-        "leo_offset": int(row["leo_offset"]),
-        "page_span": int(row["page_span"]),
-    }
-
-
 def build_page_window(page: int, total_pages: int, radius: int = 2) -> list[int]:
     start = max(1, page - radius)
     end = min(total_pages, page + radius)
