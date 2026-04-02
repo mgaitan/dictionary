@@ -564,7 +564,7 @@ def lookup_linkable_terms(
     return results
 
 
-def render_gloss_html(gloss: str) -> Markup:
+def render_gloss_html(gloss: str, headword: str = "") -> Markup:
     html_parts: list[str] = []
     rest = gloss
 
@@ -576,6 +576,16 @@ def render_gloss_html(gloss: str) -> Markup:
             + "</span> "
         )
         rest = gloss[marker_match.end() :]
+
+    if headword:
+        stripped = re.sub(
+            rf"^{re.escape(headword)}(?!\w)",
+            "",
+            rest,
+            flags=re.IGNORECASE,
+        ).lstrip()
+        if stripped:
+            rest = stripped
 
     parts = GLOSS_TOKEN_RE.split(rest)
     if not parts:
