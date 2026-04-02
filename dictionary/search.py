@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import random
 import re
 import sqlite3
 import unicodedata
@@ -141,7 +142,23 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
         direction_label="Alemán -> español",
         search_label="Palabra alemana",
         placeholder="Ej. Tabakqualm, Macher, verabschieden",
-        examples=("Macher", "Machbarkeit", "Tabakqualm", "Verabschiedung"),
+        examples=(
+            "Macher",
+            "Machbarkeit",
+            "Tabakqualm",
+            "Verabschiedung",
+            "Fernweh",
+            "Weltanschauung",
+            "Schadenfreude",
+            "Torschlusspanik",
+            "Fingerspitzengefühl",
+            "Zeitgeist",
+            "Wanderlust",
+            "Gemütlichkeit",
+            "Doppelgänger",
+            "Verschlimmbessern",
+            "Lebensraum",
+        ),
         hero_lead="",
     ),
     "es-de": DictionaryConfig(
@@ -153,10 +170,33 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
         direction_label="Español -> alemán",
         search_label="Palabra española",
         placeholder="Ej. hacer, mujer, antaño, abadesa",
-        examples=("hacer", "mujer", "antaño", "abadesa"),
+        examples=(
+            "hacer",
+            "mujer",
+            "antaño",
+            "abadesa",
+            "mariposa",
+            "lluvia",
+            "cielo",
+            "espejo",
+            "canción",
+            "libertad",
+            "montaña",
+            "estrella",
+            "jardín",
+            "amanecer",
+            "relámpago",
+        ),
         hero_lead="",
     ),
 }
+
+
+def get_random_examples(dictionary: DictionaryConfig, count: int = 3) -> tuple[str, ...]:
+    """Return a random subset of example words for the given dictionary."""
+    pool = list(dictionary.examples)
+    chosen = random.sample(pool, min(count, len(pool)))
+    return tuple(chosen)
 
 
 def get_dictionary(dictionary_id: str | None) -> DictionaryConfig:

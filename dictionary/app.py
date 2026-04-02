@@ -18,6 +18,7 @@ from dictionary.search import (
     build_sense_anchor,
     find_unresolved_index_entry,
     get_dictionary,
+    get_random_examples,
     load_stats,
     lookup_linkable_terms,
     normalize_for_search,
@@ -60,6 +61,8 @@ def homepage(
     query = q.strip()
     normalized_query = normalize_for_search(query)
     page = max(1, page)
+    random_examples = get_random_examples(dictionary)
+    random_placeholder = "Ej. " + ", ".join(random_examples)
 
     error = None
     results: list[dict[str, object]] = []
@@ -125,6 +128,8 @@ def homepage(
         "displayed_result_count": displayed_result_count,
         "error": error,
         "stats": stats,
+        "random_examples": random_examples,
+        "random_placeholder": random_placeholder,
     }
     return templates.TemplateResponse(
         request=request,
