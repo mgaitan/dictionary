@@ -104,7 +104,7 @@
                         Probá con {% for example in random_examples %} {% if
                         not loop.first %}{% if loop.last %} o {% else %}, {%
                         endif %}{% endif %}
-                        <code>{{ example }}</code>
+                        <a href="{{ build_dictionary_url(dictionary_id, example) }}" aria-label="Buscar {{ example }}"><code>{{ example }}</code></a>
                         {% endfor %}.
                     </div>
                     {% else %} {% if not results %}
