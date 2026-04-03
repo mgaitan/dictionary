@@ -15,6 +15,7 @@ from markupsafe import Markup
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "site" / "data"
 PAGE_LIMIT = 25
+AUTOCOMPLETE_LIMIT = 10
 
 GLOSS_TOKEN_RE = re.compile(
     r"(\[[^\]]+\]|<[^>]+>|(?<![\w·])(?:m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)(?![\w]))",
@@ -238,6 +239,30 @@ def load_stats(connection: sqlite3.Connection) -> dict[str, int]:
         "entries": entry_count,
         "senses": sense_count,
     }
+
+
+def get_autocomplete_suggestions(
+    connection: sqlite3.Connection,
+    normalized_query: str,
+    limit: int = AUTOCOMPLETE_LIMIT,
+) -> list[str]:
+    """Return headwords whose normalized search term starts with the given prefix.
+
+    Results are sorted alphabetically so the dropdown feels predictable.
+    """
+    prefix = normalized_query + "%"
+    rows = connection.execute(
+        """
+        SELECT DISTINCT e.headword
+        FROM search_terms st
+        INNER JOIN entries e ON e.id = st.entry_id
+        WHERE st.normalized_term LIKE ?
+        ORDER BY e.headword
+        LIMIT ?
+        """,
+        (prefix, limit),
+    ).fetchall()
+    return [str(row["headword"]) for row in rows]
 
 
 def decode_json_list(value: str) -> list[str]:

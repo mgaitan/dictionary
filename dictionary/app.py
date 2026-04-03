@@ -16,6 +16,7 @@ from dictionary.search import (
     build_page_url,
     build_page_window,
     build_sense_anchor,
+    get_autocomplete_suggestions,
     get_dictionary,
     get_random_examples,
     load_stats,
@@ -135,6 +136,26 @@ def healthcheck() -> JSONResponse:
         "dictionaries": sorted(DICTIONARIES.keys()),
     }
     return JSONResponse(payload)
+
+
+@app.get("/api/autocomplete", response_class=JSONResponse)
+def autocomplete(
+    request: Request,
+    dict: str = "de-es",
+    q: str = "",
+) -> JSONResponse:
+    query = q.strip()
+    normalized_query = normalize_for_search(query)
+    if not normalized_query:
+        return JSONResponse({"suggestions": []})
+
+    dictionary = get_dictionary(dict)
+    if not dictionary.database_path.is_file():
+        return JSONResponse({"suggestions": []}, status_code=503)
+
+    with closing(open_database(dictionary.database_path)) as connection:
+        suggestions = get_autocomplete_suggestions(connection, normalized_query)
+    return JSONResponse({"suggestions": suggestions})
 
 
 @app.post("/api/linkable-terms", response_class=JSONResponse)
