@@ -15,6 +15,7 @@ from markupsafe import Markup
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "site" / "data"
 PAGE_LIMIT = 25
+AUTOCOMPLETE_LIMIT = 10
 
 GLOSS_TOKEN_RE = re.compile(
     r"(\[[^\]]+\]|<[^>]+>|(?<![\w·])(?:m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)(?![\w]))",
@@ -238,6 +239,26 @@ def load_stats(connection: sqlite3.Connection) -> dict[str, int]:
         "entries": entry_count,
         "senses": sense_count,
     }
+
+
+def get_autocomplete_suggestions(
+    connection: sqlite3.Connection,
+    normalized_query: str,
+    limit: int = AUTOCOMPLETE_LIMIT,
+) -> list[str]:
+    """Return headwords that start with the given prefix, sorted alphabetically."""
+    prefix = normalized_query + "%"
+    rows = connection.execute(
+        """
+        SELECT headword
+        FROM entries
+        WHERE normalized_headword LIKE ?
+        ORDER BY headword
+        LIMIT ?
+        """,
+        (prefix, limit),
+    ).fetchall()
+    return [str(row["headword"]) for row in rows]
 
 
 def decode_json_list(value: str) -> list[str]:

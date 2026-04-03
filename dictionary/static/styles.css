@@ -138,6 +138,7 @@ label {
 .search-box {
     display: grid;
     gap: 0.5rem;
+    position: relative;
 }
 
 .search-box label {
@@ -164,6 +165,35 @@ label {
     border-color: rgba(159, 63, 25, 0.55);
     box-shadow: 0 0 0 4px rgba(159, 63, 25, 0.1);
     transform: translateY(-1px);
+}
+
+.autocomplete-list {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 100;
+    margin: 0;
+    padding: 0.25rem 0;
+    list-style: none;
+    background: var(--surface-strong);
+    border: 1px solid rgba(74, 55, 25, 0.2);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow);
+    max-height: 18rem;
+    overflow-y: auto;
+}
+
+.autocomplete-option {
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    transition: background 100ms ease;
+}
+
+.autocomplete-option:hover,
+.autocomplete-option.is-active {
+    background: var(--accent-soft);
+    color: var(--accent);
 }
 
 .actions {
