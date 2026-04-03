@@ -246,18 +246,14 @@ def get_autocomplete_suggestions(
     normalized_query: str,
     limit: int = AUTOCOMPLETE_LIMIT,
 ) -> list[str]:
-    """Return headwords whose normalized search term starts with the given prefix.
-
-    Results are sorted alphabetically so the dropdown feels predictable.
-    """
+    """Return headwords that start with the given prefix, sorted alphabetically."""
     prefix = normalized_query + "%"
     rows = connection.execute(
         """
-        SELECT DISTINCT e.headword
-        FROM search_terms st
-        INNER JOIN entries e ON e.id = st.entry_id
-        WHERE st.normalized_term LIKE ?
-        ORDER BY e.headword
+        SELECT headword
+        FROM entries
+        WHERE normalized_headword LIKE ?
+        ORDER BY headword
         LIMIT ?
         """,
         (prefix, limit),
