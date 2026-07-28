@@ -289,7 +289,7 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
         title="Diccionario español-alemán",
         description="Buscador FastAPI + SQLite para el diccionario español-alemán.",
         direction_label="Español -> alemán",
-        search_label="Palabra española",
+        search_label="Palabra en español",
         placeholder="Ej. hacer, mujer, antaño, abadesa",
         examples=(
             "hacer",
