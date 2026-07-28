@@ -26,6 +26,126 @@ GRAMMAR_TOKEN_RE = re.compile(
     r"^(m|f|n|pl|mpl|fpl|adj|adv|vt|vi|vr|vtr|pron|prep|conj|interj|num|sg|subst|tr|intr)$",
     re.IGNORECASE,
 )
+
+# Maps inline label abbreviations (without angle brackets) to human-readable expansions.
+# Used by render_gloss_html to add title attributes on <span class="gloss-label"> elements.
+LABEL_EXPANSIONS: dict[str, str] = {
+    # Register / style
+    "pop": "popular/coloquial",
+    "fam": "familiar",
+    "vulg": "vulgar",
+    "salopp": "coloquial descuidado",
+    "desp": "despectivo",
+    "iron": "irónico",
+    "poet": "poético",
+    "lit": "literario",
+    "wiss": "científico/culto",
+    "reg": "regional",
+    # Usage notes
+    "fig": "figurado",
+    "figf": "figurado (uso frecuente)",
+    "allg": "en general",
+    "auch": "también",
+    "nur": "solo",
+    "bes": "especialmente",
+    "bzw": "respectivamente",
+    # Subject areas
+    "V": "Ornitología/Vogelkunde",
+    "Agr": "Agricultura",
+    "An": "Anatomía",
+    "Anthrop": "Antropología",
+    "Arch": "Arquitectura",
+    "Archäol": "Arqueología",
+    "Astr": "Astronomía",
+    "Atom": "Física atómica/nuclear",
+    "Auto": "Automovilismo",
+    "Bgb": "Minería",
+    "Bibl": "Bíblico",
+    "Biol": "Biología",
+    "Bot": "Botánica",
+    "Buch": "Industria editorial",
+    "Chem": "Química",
+    "Com": "Comercio",
+    "EB": "Ferrocarriles",
+    "El": "Electrónica/Electricidad",
+    "Fechtk": "Esgrima",
+    "Fi": "Finanzas",
+    "Film": "Cinematografía",
+    "Flugw": "Aviación",
+    "Fot": "Fotografía",
+    "Geogr": "Geografía",
+    "Geol": "Geología",
+    "Ggs": "antónimo/contrario",
+    "Gr": "Gramática",
+    "Her": "Heráldica",
+    "Hist": "Historia",
+    "Inform": "Informática",
+    "Ins": "Entomología/Insectos",
+    "Jgd": "Caza",
+    "Jur": "Jurídico/Derecho",
+    "Kart": "Cartografía",
+    "Kath": "Catolicismo",
+    "Kochk": "Cocina/Gastronomía",
+    "Ku": "Arte",
+    "Ling": "Lingüística",
+    "Lit": "Literatura",
+    "Luftw": "Aeronáutica",
+    "Mal": "Pintura",
+    "Mar": "Marina/Náutica",
+    "Math": "Matemáticas",
+    "Med": "Medicina",
+    "Met": "Metalurgia",
+    "Meteor": "Meteorología",
+    "Mil": "Militar",
+    "Min": "Mineralogía",
+    "Motor": "Motociclismo",
+    "Mus": "Música",
+    "Myth": "Mitología",
+    "Pharm": "Farmacia",
+    "Phon": "Fonética",
+    "Phys": "Física",
+    "Pol": "Política",
+    "Raumf": "Astronáutica/Vuelo espacial",
+    "Rel": "Religión",
+    "Rhet": "Retórica",
+    "Sch": "Enseñanza/Escuela",
+    "Sp": "Deporte",
+    "Stud": "Jerga estudiantil",
+    "Tech": "Técnica/Tecnología",
+    "Tel": "Telecomunicaciones",
+    "Text": "Industria textil",
+    "Th": "Teatro",
+    "Typ": "Tipografía/Imprenta",
+    "Vet": "Veterinaria",
+    "Zim": "Carpintería",
+    "Zool": "Zoología",
+    "Ztg": "Periodismo/Prensa",
+    # Geographic/varietal
+    "Am": "América",
+    "And": "región andina",
+    "Arg": "Argentina",
+    "Bol": "Bolivia",
+    "Br": "Brasil",
+    "Deut": "Alemania",
+    "engl": "anglicismo",
+    "frz": "galicismo",
+    "Mex": "México",
+    "nordd": "norte de Alemania",
+    "öst": "Austria",
+    "port": "portugués",
+    "RPl": "Río de la Plata",
+    "schw": "Suiza",
+    "Span": "España",
+    "südd": "sur de Alemania",
+    # Abbreviation notes
+    "Abk": "abreviatura",
+    "mod": "modismo",
+}
+# Case-folded lookup for LABEL_EXPANSIONS, built once at import time.
+# Enables case-insensitive matching (e.g. "span" and "Span" both resolve to España).
+_LABEL_EXPANSIONS_LOWER: dict[str, str] = {
+    k.casefold(): v for k, v in LABEL_EXPANSIONS.items()
+}
 COMMON_STOPWORDS = {
     "aber",
     "algo",
@@ -554,6 +674,32 @@ def lookup_linkable_terms(
     return results
 
 
+def _expand_label(inner: str) -> str | None:
+    """Return a human-readable expansion for a label abbreviation, or None.
+
+    Handles composite labels like "Am fam" by expanding each component that
+    appears in LABEL_EXPANSIONS and joining them with " · ".
+
+    Returns None when no component of the label is recognised, so callers can
+    omit the title attribute entirely rather than showing a partial or unhelpful
+    tooltip.
+    """
+    parts = inner.split()
+    expanded_parts: list[str] = []
+    any_known = False
+    for part in parts:
+        # Strip trailing punctuation (e.g. "bes." → "bes") then normalise case
+        # for a single case-insensitive lookup against _LABEL_EXPANSIONS_LOWER.
+        key = part.rstrip(".,;").casefold()
+        expansion = _LABEL_EXPANSIONS_LOWER.get(key)
+        if expansion:
+            any_known = True
+            expanded_parts.append(expansion)
+        else:
+            expanded_parts.append(part)
+    return " · ".join(expanded_parts) if any_known else None
+
+
 def render_gloss_html(gloss: str, headword: str = "") -> Markup:
     html_parts: list[str] = []
     rest = gloss
@@ -588,7 +734,15 @@ def render_gloss_html(gloss: str, headword: str = "") -> Markup:
         if part.startswith("[") and part.endswith("]"):
             html_parts.append(f'<span class="gloss-note">{escaped}</span>')
         elif part.startswith("<") and part.endswith(">"):
-            html_parts.append(f'<span class="gloss-label">{escaped}</span>')
+            inner = part[1:-1]
+            expansion = _expand_label(inner)
+            if expansion:
+                title_attr = f' title="{html.escape(expansion)}"'
+            else:
+                title_attr = ""
+            html_parts.append(
+                f'<span class="gloss-label"{title_attr}>{escaped}</span>'
+            )
         elif GRAMMAR_TOKEN_RE.match(part.strip()):
             html_parts.append(f'<span class="gloss-grammar">{escaped}</span>')
         else:

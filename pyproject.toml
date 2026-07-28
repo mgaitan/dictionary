@@ -17,3 +17,6 @@ packages = ["dictionary"]
 
 [tool.fastapi]
 entrypoint = "dictionary.app:app"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
