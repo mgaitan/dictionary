@@ -1,6 +1,6 @@
 PYTHON ?= uv run
 
-ROOT_DIR := /home/tin/lab/UniLex
+ROOT_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 SITE_DIR := $(ROOT_DIR)/site
 DATA_DIR := $(SITE_DIR)/data
 TOOLS_DIR := $(ROOT_DIR)/tools
@@ -9,10 +9,10 @@ DLL_PATH := $(ROOT_DIR)/UniLex - Brandstetter Slaby/program/aclexman.dll
 
 DE_ES_IDO := $(SOURCE_DIR)/slagrods.ido
 DE_ES_LEO := $(SOURCE_DIR)/slagrods.leo
-DE_ES_INDEX := $(DATA_DIR)/index.json
-DE_ES_RAW := $(DATA_DIR)/dictionary.json
-DE_ES_JSON := $(DATA_DIR)/dictionary-indexed.json
-DE_ES_SQLITE := $(DATA_DIR)/dictionary.sqlite
+DE_ES_INDEX := $(DATA_DIR)/de-es-index.json
+DE_ES_RAW := $(DATA_DIR)/de-es-dictionary.json
+DE_ES_JSON := $(DATA_DIR)/de-es-dictionary-indexed.json
+DE_ES_SQLITE := $(DATA_DIR)/de-es-dictionary.sqlite
 
 ES_DE_IDO := $(SOURCE_DIR)/slagrosd.IDO
 ES_DE_LEO := $(SOURCE_DIR)/slagrosd.LEO
@@ -21,11 +21,17 @@ ES_DE_RAW := $(DATA_DIR)/es-de-dictionary.json
 ES_DE_JSON := $(DATA_DIR)/es-de-dictionary-indexed.json
 ES_DE_SQLITE := $(DATA_DIR)/es-de-dictionary.sqlite
 
+EN_ES_PDB := $(ROOT_DIR)/EnglishSpanish.pdb
+EN_ES_SQLITE := $(DATA_DIR)/en-es-dictionary.sqlite
+ES_EN_PDB := $(ROOT_DIR)/SpanishEnglish.pdb
+ES_EN_SQLITE := $(DATA_DIR)/es-en-dictionary.sqlite
+
 .PHONY: \
 	all \
 	build-index build-raw build-json build-sqlite build-data \
 	build-index-de-es build-raw-de-es build-json-de-es build-sqlite-de-es build-data-de-es \
 	build-index-es-de build-raw-es-de build-json-es-de build-sqlite-es-de build-data-es-de \
+	build-sqlite-en-es build-data-en-es build-sqlite-es-en build-data-es-en build-pdb-data \
 	serve lock-fastapi clean
 
 all: build-data
@@ -34,7 +40,7 @@ build-index: build-index-de-es
 build-raw: build-raw-de-es
 build-json: build-json-de-es
 build-sqlite: build-sqlite-de-es
-build-data: build-data-de-es build-data-es-de
+build-data: build-data-de-es build-data-es-de build-pdb-data
 
 build-index-de-es:
 	$(PYTHON) $(TOOLS_DIR)/analyze_slagro.py export-index --ido "$(DE_ES_IDO)" --leo "$(DE_ES_LEO)" --output "$(DE_ES_INDEX)"
@@ -64,6 +70,18 @@ build-sqlite-es-de:
 
 build-data-es-de: build-index-es-de build-raw-es-de build-json-es-de build-sqlite-es-de
 
+build-sqlite-en-es:
+	$(PYTHON) $(TOOLS_DIR)/extract_msdict.py "$(EN_ES_PDB)" --sqlite "$(EN_ES_SQLITE)"
+
+build-data-en-es: build-sqlite-en-es
+
+build-sqlite-es-en:
+	$(PYTHON) $(TOOLS_DIR)/extract_msdict.py "$(ES_EN_PDB)" --sqlite "$(ES_EN_SQLITE)"
+
+build-data-es-en: build-sqlite-es-en
+
+build-pdb-data: build-data-en-es build-data-es-en
+
 serve:
 	cd "$(ROOT_DIR)" && uv run fastapi dev --host 127.0.0.1 --port 8001
 
@@ -73,3 +91,4 @@ lock-fastapi:
 clean:
 	rm -f "$(DE_ES_INDEX)" "$(DE_ES_RAW)" "$(DE_ES_JSON)" "$(DE_ES_SQLITE)"
 	rm -f "$(ES_DE_INDEX)" "$(ES_DE_RAW)" "$(ES_DE_JSON)" "$(ES_DE_SQLITE)"
+	rm -f "$(EN_ES_SQLITE)" "$(ES_EN_SQLITE)"

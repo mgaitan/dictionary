@@ -6,6 +6,14 @@ build-backend = "hatchling.build"
 name = "dictionary"
 version = "0.1.0"
 description = "FastAPI frontend for the reconstructed UniLex dictionaries"
+keywords = [
+    "reverse-engineering",
+    "dictionary",
+    "msdict",
+    "palm-pdb",
+    "ber",
+    "deflate",
+]
 requires-python = "==3.12.*"
 dependencies = [
     "fastapi[standard]>=0.115.0,<1.0.0",

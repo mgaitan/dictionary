@@ -3,6 +3,20 @@
 # dependencies = []
 # ///
 
+"""Build the FastAPI-compatible SQLite database from cleaned UniLex JSON.
+
+The output contract is shared by every dictionary direction: ``entries``,
+``senses``, ``search_terms``, ``index_entries``, and key/value ``metadata``.
+The importer recreates the destination database atomically from the supplied
+cleaned dictionary and authentic index JSON.
+
+Example:
+    uv run tools/build_site_sqlite.py \
+        --json site/data/de-es-dictionary-indexed.json \
+        --index site/data/de-es-index.json \
+        --sqlite site/data/de-es-dictionary.sqlite
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -23,6 +37,7 @@ def ensure_parent(path: Path) -> None:
 
 
 def create_schema(db: sqlite3.Connection) -> None:
+    """Create the stable SQLite interface consumed by ``dictionary.search``."""
     db.executescript(
         """
         PRAGMA journal_mode = WAL;
@@ -139,8 +154,8 @@ def import_dictionary(
             db.executemany(
                 "INSERT INTO metadata(key, value) VALUES (?, ?)",
                 [
-                    ("source_json", str(json_path)),
-                    ("source_index_json", str(index_path)),
+                    ("source_json", json_path.name),
+                    ("source_index_json", index_path.name),
                     ("entry_count", str(len(entries))),
                 ],
             )
@@ -261,17 +276,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--json",
-        default="/home/tin/lab/UniLex/site/data/dictionary-indexed.json",
+        required=True,
         help="clean dictionary JSON generated for the site",
     )
     parser.add_argument(
         "--index",
-        default="/home/tin/lab/UniLex/site/data/index.json",
+        required=True,
         help="authentic IDO/LEO index JSON",
     )
     parser.add_argument(
         "--sqlite",
-        default="/home/tin/lab/UniLex/site/data/dictionary.sqlite",
+        required=True,
         help="output SQLite file",
     )
     return parser

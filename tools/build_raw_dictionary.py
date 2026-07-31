@@ -3,6 +3,22 @@
 # dependencies = ["pefile"]
 # ///
 
+"""Decode UniLex LEO articles with the Huffman codebook embedded in its DLL.
+
+This is the binary extraction stage for the Brandstetter/Slaby dictionaries.
+It validates IDO pointers against the LEO container, reads the 256-entry
+codebook from the supplied Windows DLL, decodes each page bit by bit, and emits
+raw JSON. No input location is assumed; all source and destination paths are
+required CLI arguments.
+
+Example:
+    uv run tools/build_raw_dictionary.py \
+        --ido path/to/slagrods.ido \
+        --leo path/to/slagrods.leo \
+        --dll path/to/aclexman.dll \
+        --output site/data/de-es-dictionary.json
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -12,12 +28,8 @@ from pathlib import Path
 
 import pefile
 from analyze_slagro import DEFAULT_RECORD_TYPE, build_index
-from inspect_unilex import ROOT, read_page
+from inspect_unilex import read_page
 
-DEFAULT_DLL = Path(
-    "/home/tin/lab/UniLex/UniLex - Brandstetter Slaby/program/aclexman.dll"
-)
-DEFAULT_OUTPUT = Path("/home/tin/lab/UniLex/site/data/dictionary.json")
 DEFAULT_CODEBOOK_RVA = 0x10042050
 CODEBOOK_ENTRY_COUNT = 256
 CODEBOOK_ENTRY_SIZE = 5
@@ -59,6 +71,7 @@ def parse_record_type(value: str) -> int | None:
 
 
 def build_decoder_table(dll_path: Path, codebook_rva: int) -> list[tuple[int, int]]:
+    """Read the symbol/bit-length codebook from a PE image at an RVA."""
     pe = pefile.PE(str(dll_path))
     blob = pe.get_data(
         codebook_rva - pe.OPTIONAL_HEADER.ImageBase,
@@ -80,6 +93,7 @@ def build_decoder_table(dll_path: Path, codebook_rva: int) -> list[tuple[int, in
 
 
 def build_decoder_tree(table: list[tuple[int, int]]) -> list[list[int]]:
+    """Expand canonical codebook entries into a bit-walking decoder tree."""
     nodes: list[list[int]] = [[-1, -1, -1] for _ in range(4096)]
     next_index = 1
 
@@ -190,7 +204,7 @@ def build_raw_dictionary(
             page.payload_offset : page.payload_offset + page.payload_len
         ]
         decoded, decoded_complete = decode_payload(tree, payload)
-        visible_text, raw_text, metadata_part = strip_formatting(decoded)
+        visible_text, _raw_text, metadata_part = strip_formatting(decoded)
 
         if not visible_text or not any(char.isalpha() for char in visible_text):
             skipped_empty += 1
@@ -262,10 +276,10 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Build raw dictionary.json directly from IDO/LEO"
     )
-    parser.add_argument("--ido", default=str(ROOT / "slagrods.ido"))
-    parser.add_argument("--leo", default=str(ROOT / "slagrods.leo"))
-    parser.add_argument("--dll", default=str(DEFAULT_DLL))
-    parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
+    parser.add_argument("--ido", required=True, help="source IDO index file")
+    parser.add_argument("--leo", required=True, help="source LEO data file")
+    parser.add_argument("--dll", required=True, help="DLL containing the codebook")
+    parser.add_argument("--output", required=True, help="destination raw JSON")
     parser.add_argument(
         "--codebook-rva", type=lambda raw: int(raw, 0), default=DEFAULT_CODEBOOK_RVA
     )

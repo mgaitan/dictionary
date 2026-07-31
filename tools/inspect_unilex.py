@@ -3,14 +3,27 @@
 # dependencies = []
 # ///
 
+"""Inspect the proprietary UniLex IDO index and LEO page container.
+
+The subcommands expose page headers, footer signatures, candidate strings,
+plausible index records, raw byte windows, and logical record groups. They are
+intended for repeatable format research before running the higher-level
+exporters. Every input file is passed explicitly so the tool works from any
+checkout or data directory.
+
+Example:
+    uv run tools/inspect_unilex.py ido-records \
+        --ido path/to/slagrods.ido \
+        --leo path/to/slagrods.leo \
+        --limit 20
+"""
+
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
-
-ROOT = Path('/home/tin/lab/UniLex/UniLex - Brandstetter Slaby/SlaGro')
 
 
 @dataclass(frozen=True)
@@ -65,6 +78,7 @@ class IdoRecord:
 
 
 def read_page(data: bytes, offset: int) -> LeoPage:
+    """Parse the 20-byte little-endian header of one LEO page."""
     header = data[offset : offset + 20]
     if len(header) < 20:
         raise ValueError(f'short LEO header at 0x{offset:x}')
@@ -294,7 +308,7 @@ def scan_ido_window(
 
 
 def cmd_page(args: argparse.Namespace) -> int:
-    leo_path = ROOT / args.leo
+    leo_path = Path(args.leo)
     data = leo_path.read_bytes()
     page = read_page(data, args.offset)
     print(f'file: {leo_path}')
@@ -318,7 +332,7 @@ def cmd_page(args: argparse.Namespace) -> int:
 
 
 def cmd_footer(args: argparse.Namespace) -> int:
-    leo_path = ROOT / args.leo
+    leo_path = Path(args.leo)
     data = leo_path.read_bytes()
     footer = read_footer(data)
     footer_data = data[footer.footer_offset : footer.signature_offset + 8]
@@ -353,7 +367,7 @@ def cmd_footer(args: argparse.Namespace) -> int:
 
 
 def cmd_ido_strings(args: argparse.Namespace) -> int:
-    ido_path = ROOT / args.ido
+    ido_path = Path(args.ido)
     data = ido_path.read_bytes()
     items = extract_c_strings(data, args.min_len)
     count = 0
@@ -372,8 +386,8 @@ def cmd_ido_strings(args: argparse.Namespace) -> int:
 
 
 def cmd_ido_records(args: argparse.Namespace) -> int:
-    ido_path = ROOT / args.ido
-    leo_path = ROOT / args.leo
+    ido_path = Path(args.ido)
+    leo_path = Path(args.leo)
     records = scan_ido_records(ido_path.read_bytes(), leo_path.stat().st_size)
 
     count = 0
@@ -398,8 +412,8 @@ def cmd_ido_records(args: argparse.Namespace) -> int:
 
 
 def cmd_ido_window(args: argparse.Namespace) -> int:
-    ido_path = ROOT / args.ido
-    leo_path = ROOT / args.leo
+    ido_path = Path(args.ido)
+    leo_path = Path(args.leo)
     records = scan_ido_window(
         ido_path.read_bytes(),
         leo_path.stat().st_size,
@@ -407,8 +421,7 @@ def cmd_ido_window(args: argparse.Namespace) -> int:
         args.before,
         args.after,
     )
-    count = 0
-    for record in records:
+    for count, record in enumerate(records, start=1):
         print(
             f'0x{record.offset:08x} '
             f'leo=0x{record.leo_offset:08x} '
@@ -419,15 +432,14 @@ def cmd_ido_window(args: argparse.Namespace) -> int:
             f'kind={record.kind} '
             f'guess={record.guessed_headword!r}'
         )
-        count += 1
         if count >= args.limit:
             break
     return 0
 
 
 def cmd_ido_groups(args: argparse.Namespace) -> int:
-    ido_path = ROOT / args.ido
-    leo_path = ROOT / args.leo
+    ido_path = Path(args.ido)
+    leo_path = Path(args.leo)
     records = list(scan_ido_records(ido_path.read_bytes(), leo_path.stat().st_size))
 
     groups: list[tuple[str, list[IdoRecord]]] = []
@@ -439,9 +451,7 @@ def cmd_ido_groups(args: argparse.Namespace) -> int:
         if record.kind == 'anchor' and current_records:
             groups.append((current_key, current_records))
             current_records = []
-        if record.kind == 'anchor':
-            current_key = group_key
-        elif not current_key:
+        if record.kind == 'anchor' or not current_key:
             current_key = group_key
         current_records.append(record)
 
@@ -479,41 +489,41 @@ def build_parser() -> argparse.ArgumentParser:
 
     page = sub.add_parser('page', help='inspect a single LEO page')
     page.add_argument('offset', type=lambda value: int(value, 0))
-    page.add_argument('--leo', default='slagrods.leo')
+    page.add_argument('--leo', required=True, help='source LEO data file')
     page.add_argument('--payload-bytes', type=int, default=96)
     page.set_defaults(func=cmd_page)
 
     footer = sub.add_parser('footer', help='inspect the LEO footer')
-    footer.add_argument('--leo', default='slagrods.leo')
+    footer.add_argument('--leo', required=True, help='source LEO data file')
     footer.add_argument('--bytes', type=int, default=128)
     footer.set_defaults(func=cmd_footer)
 
     ido_strings = sub.add_parser('ido-strings', help='dump candidate strings from an IDO file')
-    ido_strings.add_argument('--ido', default='slagrods.ido')
+    ido_strings.add_argument('--ido', required=True, help='source IDO index file')
     ido_strings.add_argument('--min-len', type=int, default=4)
     ido_strings.add_argument('--limit', type=int, default=80)
     ido_strings.add_argument('--contains')
     ido_strings.set_defaults(func=cmd_ido_strings)
 
     ido_records = sub.add_parser('ido-records', help='scan plausible IDO index records')
-    ido_records.add_argument('--ido', default='slagrods.ido')
-    ido_records.add_argument('--leo', default='slagrods.leo')
+    ido_records.add_argument('--ido', required=True, help='source IDO index file')
+    ido_records.add_argument('--leo', required=True, help='source LEO data file')
     ido_records.add_argument('--limit', type=int, default=80)
     ido_records.add_argument('--contains')
     ido_records.set_defaults(func=cmd_ido_records)
 
     ido_window = sub.add_parser('ido-window', help='inspect a raw window around an IDO offset')
     ido_window.add_argument('center', type=lambda value: int(value, 0))
-    ido_window.add_argument('--ido', default='slagrods.ido')
-    ido_window.add_argument('--leo', default='slagrods.leo')
+    ido_window.add_argument('--ido', required=True, help='source IDO index file')
+    ido_window.add_argument('--leo', required=True, help='source LEO data file')
     ido_window.add_argument('--before', type=int, default=64)
     ido_window.add_argument('--after', type=int, default=160)
     ido_window.add_argument('--limit', type=int, default=32)
     ido_window.set_defaults(func=cmd_ido_window)
 
     ido_groups = sub.add_parser('ido-groups', help='group nearby IDO records into logical lemmas')
-    ido_groups.add_argument('--ido', default='slagrods.ido')
-    ido_groups.add_argument('--leo', default='slagrods.leo')
+    ido_groups.add_argument('--ido', required=True, help='source IDO index file')
+    ido_groups.add_argument('--leo', required=True, help='source LEO data file')
     ido_groups.add_argument('--limit', type=int, default=40)
     ido_groups.add_argument('--max-records', type=int, default=8)
     ido_groups.add_argument('--contains')
