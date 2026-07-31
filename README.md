@@ -1,7 +1,7 @@
 # Dictionary
 
-Buscador web para un diccionario alemán-español y español-alemán reconstruido a
-partir de archivos de datos de una aplicación Windows antigua.
+Buscador web para diccionarios alemán-español e inglés-español en ambas
+direcciones, reconstruidos a partir de aplicaciones antiguas.
 
 La app publicada hoy corre con FastAPI y usa SQLite como base de consulta. La
 generación de datos sigue en Python y se apoya en una pequeña pipeline de
@@ -9,10 +9,10 @@ ingeniería inversa para pasar de `IDO/LEO` a un formato web consultable.
 
 ## Qué hace el sitio
 
-- permite buscar por palabra fuente en las dos direcciones
+- permite buscar por palabra fuente en cuatro direcciones
 - pagina resultados en el servidor
 - resalta abreviaturas gramaticales, marcas semánticas y etiquetas
-- trabaja directamente sobre dos bases SQLite incluidas en el proyecto
+- trabaja directamente sobre cuatro bases SQLite incluidas en el proyecto
 
 ## Estructura
 
@@ -24,8 +24,10 @@ dictionary/
   static/styles.css      estilos
 
 site/data/
-  dictionary.sqlite      alemán -> español
-  es-de-dictionary.sqlite español -> alemán
+  de-es-dictionary.sqlite alemán → español
+  es-de-dictionary.sqlite español → alemán
+  en-es-dictionary.sqlite inglés → español
+  es-en-dictionary.sqlite español → inglés
   *.json                 artefactos intermedios locales, no versionados
 
 tools/
@@ -33,6 +35,7 @@ tools/
   build_raw_dictionary.py genera diccionario crudo desde IDO/LEO + DLL
   build_site_dictionary.py limpia y agrupa entradas
   build_site_sqlite.py   genera SQLite para la web
+  extract_msdict.py      inspecciona PDB MSDict y genera SQLite
 ```
 
 ## Cómo funciona
@@ -46,17 +49,27 @@ dirección:
 flowchart LR
     A[slagrods.ido / slagrods.leo] --> B[analyze_slagro.py]
     A --> C[build_raw_dictionary.py]
-    B --> D[index.json]
-    C --> E[dictionary.json]
+    B --> D[de-es-index.json]
+    C --> E[de-es-dictionary.json]
     D --> F[build_site_dictionary.py]
     E --> F
-    F --> G[dictionary-indexed.json]
+    F --> G[de-es-dictionary-indexed.json]
     G --> H[build_site_sqlite.py]
     D --> H
-    H --> I[dictionary.sqlite]
+    H --> I[de-es-dictionary.sqlite]
 ```
 
-Para `es -> de` se usa la misma pipeline sobre `slagrosd.IDO/LEO`.
+Para `es → de` se usa la misma pipeline sobre `slagrosd.IDO/LEO`. Los
+diccionarios Oxford `en → es` y `es → en` se extraen directamente de sus PDB
+MSDict:
+
+```mermaid
+flowchart LR
+    A[EnglishSpanish.pdb] --> C[extract_msdict.py]
+    B[SpanishEnglish.pdb] --> C
+    C --> D[BER + DEFLATE ramificado]
+    D --> E[SQLite]
+```
 
 ### 2. Consulta web
 
@@ -64,6 +77,8 @@ La app FastAPI abre la SQLite correspondiente según el query param `dict`:
 
 - `de-es`
 - `es-de`
+- `en-es`
+- `es-en`
 
 Después:
 
@@ -96,12 +111,12 @@ La aplicación expone:
 - healthcheck: `GET /healthz`
 
 El render es server-side, sin SPA ni frontend compilado. La UI sale desde
-[`dictionary/templates/index.html`](/home/tin/lab/UniLex/dictionary/templates/index.html)
+[`dictionary/templates/index.html`](dictionary/templates/index.html)
 y usa helpers registrados en Jinja2 desde
-[`dictionary/app.py`](/home/tin/lab/UniLex/dictionary/app.py).
+[`dictionary/app.py`](dictionary/app.py).
 
 La lógica de búsqueda está concentrada en
-[`dictionary/search.py`](/home/tin/lab/UniLex/dictionary/search.py):
+[`dictionary/search.py`](dictionary/search.py):
 
 - `normalize_for_search()`: saca acentos y normaliza texto
 - `search_entries()`: hace ranking y paginación
@@ -162,17 +177,34 @@ Regenerar todo:
 make build-data
 ```
 
-Solo alemán -> español:
+Solo alemán → español:
 
 ```bash
 make build-data-de-es
 ```
 
-Solo español -> alemán:
+Solo español → alemán:
 
 ```bash
 make build-data-es-de
 ```
+
+Solo los dos diccionarios PDB:
+
+```bash
+make build-pdb-data
+```
+
+Inspeccionar metadatos y algunas entradas sin generar una base:
+
+```bash
+uv run tools/extract_msdict.py EnglishSpanish.pdb --samples 5
+```
+
+Todas las tools son scripts PEP 723. No contienen rutas locales por defecto:
+los inputs y outputs se pasan por CLI y por eso se pueden ejecutar desde
+cualquier checkout. Cada script incluye ejemplos completos en su docstring y
+en `--help`.
 
 Correr local:
 
@@ -195,14 +227,27 @@ también en deploy.
 
 ## Artefactos versionados
 
-El repo publica solo las dos bases SQLite listas para consulta web.
+El repo publica las cuatro bases SQLite listas para consulta web.
 
-- `site/data/dictionary.sqlite`
+- `site/data/de-es-dictionary.sqlite`
 - `site/data/es-de-dictionary.sqlite`
+- `site/data/en-es-dictionary.sqlite`
+- `site/data/es-en-dictionary.sqlite`
 
 Los JSON intermedios de extracción y limpieza siguen existiendo como parte del
 pipeline, pero quedan ignorados en git y se regeneran localmente cuando hace
-falta.
+falta. Los PDB y APK originales son inputs locales propietarios y también están
+excluidos del repositorio.
+
+## Formatos y palabras clave
+
+Este repositorio incluye investigación reproducible para **reverse engineering
+de MSDict Palm PDB**, BER de longitud definida y **branched raw DEFLATE** con
+continuaciones alineadas a nivel de bits. También documenta la extracción del
+formato UniLex `IDO/LEO` mediante un codebook recuperado de una DLL.
+
+Palabras clave: `MSDict`, `Palm PDB`, `PDB dictionary decompiler`, `BER parser`,
+`branched DEFLATE`, `UniLex`, `IDO`, `LEO`, `dictionary reverse engineering`.
 
 ## Documentación adicional
 

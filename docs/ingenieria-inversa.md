@@ -17,8 +17,8 @@ El paquete original contiene, entre otras cosas:
 
 Había dos juegos de datos:
 
-- `slagrods.ido` + `slagrods.leo`: alemán -> español
-- `slagrosd.IDO` + `slagrosd.LEO`: español -> alemán
+- `slagrods.ido` + `slagrods.leo`: alemán → español
+- `slagrosd.IDO` + `slagrosd.LEO`: español → alemán
 
 ## Idea general
 
@@ -76,15 +76,15 @@ de decodificación y replicar el algoritmo en Python.
 
 ### 1. Inspección del índice
 
-Con [`tools/analyze_slagro.py`](/home/tin/lab/UniLex/tools/analyze_slagro.py) y
-[`tools/inspect_unilex.py`](/home/tin/lab/UniLex/tools/inspect_unilex.py) se
+Con [`tools/analyze_slagro.py`](../tools/analyze_slagro.py) y
+[`tools/inspect_unilex.py`](../tools/inspect_unilex.py) se
 validó que:
 
 - el `IDO` contenía registros auténticos
 - los offsets realmente apuntaban a páginas válidas del `LEO`
-- había más de un tipo de registro, especialmente importante para `es -> de`
+- había más de un tipo de registro, especialmente importante para `es → de`
 
-Uno de los descubrimientos importantes fue que para `es -> de` no alcanzaba con
+Uno de los descubrimientos importantes fue que para `es → de` no alcanzaba con
 filtrar solo el tipo `0x8e`. Había entradas válidas en otros tipos, por eso se
 agregó el modo `--record-type none`.
 
@@ -110,7 +110,7 @@ flowchart LR
 ```
 
 Eso hoy vive en
-[`tools/build_raw_dictionary.py`](/home/tin/lab/UniLex/tools/build_raw_dictionary.py).
+[`tools/build_raw_dictionary.py`](../tools/build_raw_dictionary.py).
 
 ### 3. Separar texto visible de metadatos
 
@@ -128,7 +128,7 @@ la aplicación original.
 No siempre el lema del índice era la mejor clave web. En muchos casos hubo que
 derivarlo del propio texto visible del artículo.
 
-Esto fue especialmente importante para el diccionario español -> alemán, donde
+Esto fue especialmente importante para el diccionario español → alemán, donde
 algunos registros del índice venían truncados o poco útiles para el uso web.
 
 ### 5. Agrupar y limpiar
@@ -140,7 +140,8 @@ Después se hizo una etapa de limpieza:
 - deduplicar acepciones
 - ordenar resultados de manera estable
 
-El resultado intermedio es `dictionary-indexed.json`.
+El resultado intermedio alemán-español es
+`de-es-dictionary-indexed.json`.
 
 ### 6. Llevarlo a SQLite
 
@@ -154,14 +155,14 @@ Por último, ese JSON limpio se transforma en SQLite para que la web pueda:
 
 ```mermaid
 flowchart TD
-    A[analyze_slagro.py] --> B[index.json]
-    C[build_raw_dictionary.py] --> D[dictionary.json]
+    A[analyze_slagro.py] --> B[de-es-index.json]
+    C[build_raw_dictionary.py] --> D[de-es-dictionary.json]
     B --> E[build_site_dictionary.py]
     D --> E
-    E --> F[dictionary-indexed.json]
+    E --> F[de-es-dictionary-indexed.json]
     B --> G[build_site_sqlite.py]
     F --> G
-    G --> H[dictionary.sqlite]
+    G --> H[de-es-dictionary.sqlite]
 ```
 
 ## Qué quedó bien resuelto
@@ -194,3 +195,27 @@ más útil para este objetivo:
 
 Eso permitió separar los datos del software viejo y llevarlos a una app web
 simple, portable y mantenible.
+
+## Diccionarios Oxford en PDB
+
+Los archivos `EnglishSpanish.pdb` y `SpanishEnglish.pdb` usan otro formato,
+perteneciente a MSDict. El APK de la aplicación Android permitió localizar el
+lector original y confirmar estas capas:
+
+1. contenedor Palm PDB con una tabla de registros big-endian
+2. metadatos e índices codificados como BER
+3. descriptores de seis bytes con registro, offset y texto del lema
+4. artículos comprimidos con raw DEFLATE
+
+La compresión tiene una particularidad: cada registro comparte un prefijo
+DEFLATE y guarda muchas continuaciones que empiezan en offsets distintos. Los
+tres bits altos del primer byte indican el corrimiento de bits. Para abrir un
+artículo hay que completar el último byte del prefijo con bits de su
+continuación y realinear los bloques siguientes antes de entregarlos a zlib.
+
+`tools/extract_msdict.py` replica ese proceso únicamente con la biblioteca
+estándar de Python. También reconstruye el árbol BER del artículo, conserva sus
+límites de bloque como líneas legibles, agrupa homógrafos marcados internamente
+como `house(1)`, `house(2)`, etc., y escribe el mismo esquema SQLite que consume
+FastAPI. El APK sirvió para documentar el algoritmo; no se necesita para volver
+a generar las bases.

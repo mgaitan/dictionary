@@ -6,3 +6,7 @@ UniLex - Brandstetter Slaby/
 UniLex - Brandstetter Slaby-20220623T125347Z-001.zip
 
 site/data/*.json
+
+# Proprietary source packages are local extraction inputs, never repo artifacts.
+*.apk
+*.pdb

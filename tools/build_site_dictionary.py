@@ -3,6 +3,19 @@
 # dependencies = []
 # ///
 
+"""Clean and group raw UniLex entries into the site's dictionary JSON format.
+
+The raw decoder emits one object per source page. This stage joins those
+objects to the verified IDO index, derives stable headwords, groups duplicate
+lemmas, structures numbered/lettered senses, and keeps useful search variants.
+
+Example:
+    uv run tools/build_site_dictionary.py \
+        --raw-dictionary site/data/de-es-dictionary.json \
+        --index site/data/de-es-index.json \
+        --output site/data/de-es-dictionary-indexed.json
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -47,13 +60,13 @@ def extract_raw_lines(raw_senses: list[object]) -> list[str]:
             lines.append(source)
 
         for field in ("glosses", "definitions", "translations", "translation"):
-            for item in to_string_list(raw_sense.get(field)):
-                lines.append(item)
+            lines.extend(to_string_list(raw_sense.get(field)))
 
     return [line for line in lines if line.strip()]
 
 
 def build_structured_senses(lines: list[str]) -> list[dict[str, object]]:
+    """Convert flat decoded lines into hierarchical site senses."""
     if not lines:
         return []
 
@@ -342,15 +355,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Build cleaned site dictionary data")
     parser.add_argument(
         "--raw-dictionary",
-        default="/home/tin/lab/UniLex/site/data/dictionary.json",
+        required=True,
+        help="raw dictionary JSON from build_raw_dictionary.py",
     )
     parser.add_argument(
         "--index",
-        default="/home/tin/lab/UniLex/site/data/index.json",
+        required=True,
+        help="verified index JSON from analyze_slagro.py",
     )
     parser.add_argument(
         "--output",
-        default="/home/tin/lab/UniLex/site/data/dictionary-indexed.json",
+        required=True,
+        help="destination cleaned dictionary JSON",
     )
     parser.add_argument(
         "--keep-unmatched",

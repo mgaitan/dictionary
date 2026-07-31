@@ -3,13 +3,27 @@
 # dependencies = []
 # ///
 
+"""Validate and export the authentic headword index from UniLex IDO/LEO files.
+
+The IDO file contains candidate headwords and pointers into a companion LEO
+file. This tool rejects records whose type, offset, or declared page span does
+not agree with the LEO page header, deduplicates the surviving entries, and
+writes a stable JSON index for the later extraction stages.
+
+Example:
+    uv run tools/analyze_slagro.py export-index \
+        --ido path/to/slagrods.ido \
+        --leo path/to/slagrods.leo \
+        --output site/data/de-es-index.json
+"""
+
 from __future__ import annotations
 
 import argparse
 import json
 from pathlib import Path
 
-from inspect_unilex import ROOT, read_page, scan_ido_records
+from inspect_unilex import read_page, scan_ido_records
 
 ALLOWED_EXTRA = set("äöüÄÖÜßáéíóúÁÉÍÓÚñÑçÇàèìòùâêîôûëïæœøåÆŒØÅ")
 ALLOWED_PUNCT = set(" ,-;/()[]'!?:")
@@ -66,6 +80,7 @@ def build_index(
     *,
     record_type: int | None = DEFAULT_RECORD_TYPE,
 ) -> list[dict[str, object]]:
+    """Return verified IDO entries whose pointers match real LEO pages."""
     ido_bytes = ido_path.read_bytes()
     leo_bytes = leo_path.read_bytes()
     items: list[dict[str, object]] = []
@@ -115,8 +130,8 @@ def build_index(
 
 
 def cmd_export_index(args: argparse.Namespace) -> int:
-    ido_path = ROOT / args.ido
-    leo_path = ROOT / args.leo
+    ido_path = Path(args.ido)
+    leo_path = Path(args.leo)
     output_path = Path(args.output)
 
     items = build_index(ido_path, leo_path, record_type=args.record_type)
@@ -150,8 +165,8 @@ def build_parser() -> argparse.ArgumentParser:
         "export-index",
         help="export an authentic IDO/LEO headword index as JSON",
     )
-    export_index.add_argument("--ido", default="slagrods.ido")
-    export_index.add_argument("--leo", default="slagrods.leo")
+    export_index.add_argument("--ido", required=True, help="source IDO index file")
+    export_index.add_argument("--leo", required=True, help="source LEO data file")
     export_index.add_argument(
         "--record-type",
         type=parse_record_type,
@@ -160,7 +175,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_index.add_argument(
         "--output",
-        default="/home/tin/lab/UniLex/site/data/index.json",
+        required=True,
+        help="destination JSON index",
     )
     export_index.set_defaults(func=cmd_export_index)
 
