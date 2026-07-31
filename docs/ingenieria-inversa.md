@@ -17,8 +17,8 @@ El paquete original contiene, entre otras cosas:
 
 Había dos juegos de datos:
 
-- `slagrods.ido` + `slagrods.leo`: alemán -> español
-- `slagrosd.IDO` + `slagrosd.LEO`: español -> alemán
+- `slagrods.ido` + `slagrods.leo`: alemán → español
+- `slagrosd.IDO` + `slagrosd.LEO`: español → alemán
 
 ## Idea general
 
@@ -82,9 +82,9 @@ validó que:
 
 - el `IDO` contenía registros auténticos
 - los offsets realmente apuntaban a páginas válidas del `LEO`
-- había más de un tipo de registro, especialmente importante para `es -> de`
+- había más de un tipo de registro, especialmente importante para `es → de`
 
-Uno de los descubrimientos importantes fue que para `es -> de` no alcanzaba con
+Uno de los descubrimientos importantes fue que para `es → de` no alcanzaba con
 filtrar solo el tipo `0x8e`. Había entradas válidas en otros tipos, por eso se
 agregó el modo `--record-type none`.
 
@@ -128,7 +128,7 @@ la aplicación original.
 No siempre el lema del índice era la mejor clave web. En muchos casos hubo que
 derivarlo del propio texto visible del artículo.
 
-Esto fue especialmente importante para el diccionario español -> alemán, donde
+Esto fue especialmente importante para el diccionario español → alemán, donde
 algunos registros del índice venían truncados o poco útiles para el uso web.
 
 ### 5. Agrupar y limpiar

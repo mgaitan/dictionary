@@ -17,7 +17,7 @@ def test_selected_dictionary_persists_for_later_visits() -> None:
 
     assert revisited.status_code == 200
     assert "<title>Diccionario inglés-español</title>" in revisited.text
-    assert "Inglés -&gt; español" in revisited.text
+    assert "Inglés → español" in revisited.text
 
 
 def test_invalid_dictionary_does_not_replace_saved_selection() -> None:
@@ -28,4 +28,4 @@ def test_invalid_dictionary_does_not_replace_saved_selection() -> None:
 
     assert response.status_code == 200
     assert DICTIONARY_COOKIE not in response.cookies
-    assert "Español -&gt; inglés" in response.text
+    assert "Español → inglés" in response.text

@@ -24,10 +24,10 @@ dictionary/
   static/styles.css      estilos
 
 site/data/
-  de-es-dictionary.sqlite alemán -> español
-  es-de-dictionary.sqlite español -> alemán
-  en-es-dictionary.sqlite inglés -> español
-  es-en-dictionary.sqlite español -> inglés
+  de-es-dictionary.sqlite alemán → español
+  es-de-dictionary.sqlite español → alemán
+  en-es-dictionary.sqlite inglés → español
+  es-en-dictionary.sqlite español → inglés
   *.json                 artefactos intermedios locales, no versionados
 
 tools/
@@ -59,8 +59,8 @@ flowchart LR
     H --> I[de-es-dictionary.sqlite]
 ```
 
-Para `es -> de` se usa la misma pipeline sobre `slagrosd.IDO/LEO`. Los
-diccionarios Oxford `en -> es` y `es -> en` se extraen directamente de sus PDB
+Para `es → de` se usa la misma pipeline sobre `slagrosd.IDO/LEO`. Los
+diccionarios Oxford `en → es` y `es → en` se extraen directamente de sus PDB
 MSDict:
 
 ```mermaid
@@ -177,13 +177,13 @@ Regenerar todo:
 make build-data
 ```
 
-Solo alemán -> español:
+Solo alemán → español:
 
 ```bash
 make build-data-de-es
 ```
 
-Solo español -> alemán:
+Solo español → alemán:
 
 ```bash
 make build-data-es-de
