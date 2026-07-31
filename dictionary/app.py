@@ -29,6 +29,8 @@ from dictionary.search import (
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
+DICTIONARY_COOKIE = "dictionary_id"
+DICTIONARY_COOKIE_MAX_AGE = 60 * 60 * 24 * 365
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.filters["render_gloss_html"] = render_gloss_html
 templates.env.globals["build_page_url"] = build_page_url
@@ -53,11 +55,13 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 @app.get("/", response_class=HTMLResponse)
 def homepage(
     request: Request,
-    dict: str = "de-es",
+    dict: str | None = None,
     q: str = "",
     page: int = 1,
 ) -> HTMLResponse:
-    dictionary = get_dictionary(dict)
+    selected_dictionary_id = dict if dict in DICTIONARIES else None
+    saved_dictionary_id = request.cookies.get(DICTIONARY_COOKIE)
+    dictionary = get_dictionary(selected_dictionary_id or saved_dictionary_id)
     query = q.strip()
     normalized_query = normalize_for_search(query)
     page = max(1, page)
@@ -122,11 +126,20 @@ def homepage(
         "random_examples": random_examples,
         "random_placeholder": random_placeholder,
     }
-    return templates.TemplateResponse(
+    response = templates.TemplateResponse(
         request=request,
         name="index.html",
         context=context,
     )
+    if selected_dictionary_id:
+        response.set_cookie(
+            DICTIONARY_COOKIE,
+            selected_dictionary_id,
+            max_age=DICTIONARY_COOKIE_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+        )
+    return response
 
 
 @app.get("/healthz", response_class=JSONResponse)
