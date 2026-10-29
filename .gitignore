@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 .venv/
+.env
+.env.*
+!.env.example
 
 UniLex - Brandstetter Slaby/
 UniLex - Brandstetter Slaby-20220623T125347Z-001.zip
@@ -10,3 +13,11 @@ site/data/*.json
 # Proprietary source packages are local extraction inputs, never repo artifacts.
 *.apk
 *.pdb
+site/data/*.jsonl
+site/data/*.tmp
+site/data/moliner.libsql*
+site/data/moliner-epub/
+.cache/
+Diccionario de uso del español Maria Moliner (3ª-ED.)/
+Diccionario de uso del español Maria Moliner (3ª-ED.).zip
+diccionario_maria_moliner_1996.pdf

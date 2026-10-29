@@ -14,6 +14,16 @@
     --max-width: 1040px;
 }
 
+@font-face {
+    font-family: "Moliner Greek";
+    src: url("fonts/detede1.ttf") format("truetype");
+    font-display: block;
+}
+
+.moliner-font-detede {
+    font-family: "Moliner Greek", serif;
+}
+
 * {
     box-sizing: border-box;
 }
@@ -528,6 +538,87 @@ code {
     padding: 0.1rem 0.35rem;
     border-radius: 6px;
     background: rgba(74, 55, 25, 0.08);
+}
+
+.moliner-article {
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.moliner-acepcion,
+.moliner-expresion,
+.moliner-notas-uso,
+.moliner-nota-final,
+.moliner-catalogo,
+.moliner-formas-de-expresion {
+    margin-top: 0.65rem;
+}
+
+.moliner-sub-acepcion {
+    margin: 0.35rem 0 0.35rem 1.2rem;
+}
+
+.moliner-sub-acepcion::before {
+    content: "• ";
+    color: var(--muted);
+}
+
+.moliner-etimologia,
+.moliner-comentario-voz,
+.moliner-notas-uso {
+    color: var(--muted);
+}
+
+.moliner-cursiva,
+.moliner-ejemplos,
+.moliner-nombre-cientifico {
+    font-style: italic;
+}
+
+.moliner-redonda {
+    font-style: normal;
+}
+
+.moliner-lexia,
+.moliner-negrita,
+.moliner-ordenatriz {
+    font-weight: bold;
+}
+
+.moliner-versalita {
+    font-variant: small-caps;
+}
+
+.moliner-sup,
+.moliner-sub {
+    font-size: 0.75em;
+    line-height: 0;
+}
+
+.moliner-sup { vertical-align: super; }
+.moliner-sub { vertical-align: sub; }
+
+.moliner-cat-gram,
+.moliner-epigrafe,
+.moliner-area-uso,
+.moliner-nivel-uso {
+    color: var(--accent);
+}
+
+.moliner-expresiones-pluriverbales {
+    border-top: 1px solid var(--border);
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+}
+
+.moliner-article [id],
+.entry-title [id] {
+    scroll-margin-top: 1rem;
+}
+
+.moliner-article :target,
+.entry-title :target {
+    background: var(--accent-soft);
 }
 
 @keyframes rise-in {

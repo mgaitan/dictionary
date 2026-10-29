@@ -19,7 +19,7 @@
             <section class="hero">
                 <div
                     class="dictionary-switcher"
-                    aria-label="Dirección del diccionario"
+                    aria-label="Diccionarios"
                 >
                     {% for id, item in dictionaries.items() %} {% if id ==
                     dictionary_id %}
@@ -116,11 +116,14 @@
                         <header class="entry-header">
                             <div>
                                 <h2 class="entry-title">
-                                    {{ entry.headword }}
+                                    {{ entry.title_html if dictionary_id == 'moliner' else entry.headword }}
                                 </h2>
                             </div>
                         </header>
 
+                        {% if dictionary_id == 'moliner' %}
+                        <div class="moliner-article">{{ entry.article_html }}</div>
+                        {% else %}
                         <ol class="sense-list">
                             {% for sense in entry.senses %} {% set sense_index =
                             loop.index0 %} {% set sense_anchor =
@@ -170,6 +173,7 @@
                             </li>
                             {% endfor %}
                         </ol>
+                        {% endif %}
                     </article>
                     {% endfor %} {% if total_pages > 1 %}
                     <nav

@@ -1,18 +1,19 @@
 # Dictionary
 
 Buscador web para diccionarios alemán-español e inglés-español en ambas
-direcciones, reconstruidos a partir de aplicaciones antiguas.
+direcciones y el **Diccionario de uso del español de María Moliner (3.ª edición)**.
 
-La app publicada hoy corre con FastAPI y usa SQLite como base de consulta. La
-generación de datos sigue en Python y se apoya en una pequeña pipeline de
-ingeniería inversa para pasar de `IDO/LEO` a un formato web consultable.
+La app corre con FastAPI y usa SQLite para los diccionarios bilingües y una base
+libSQL independiente para María Moliner. Los datos se reconstruyen en Python
+desde los formatos originales de las aplicaciones.
 
 ## Qué hace el sitio
 
 - permite buscar por palabra fuente en cuatro direcciones
 - pagina resultados en el servidor
 - resalta abreviaturas gramaticales, marcas semánticas y etiquetas
-- trabaja directamente sobre cuatro bases SQLite incluidas en el proyecto
+- trabaja sobre cuatro bases SQLite bilingües y una base libSQL de Moliner
+- conserva en Moliner etimologías, notas, ejemplos, expresiones y remisiones
 
 ## Estructura
 
@@ -79,6 +80,7 @@ La app FastAPI abre la SQLite correspondiente según el query param `dict`:
 - `es-de`
 - `en-es`
 - `es-en`
+- `moliner`
 
 Después:
 
@@ -225,9 +227,36 @@ entrypoint = "dictionary.app:app"
 El proyecto incluye `uv.lock`, por lo que las dependencias quedan pinneadas
 también en deploy.
 
+## María Moliner
+
+La pestaña **Uso del español (María Moliner)** está en `/?dict=moliner`.
+Incluye 88.112 entradas, 164.056 acepciones y búsqueda por lemas, variantes y
+expresiones, con autocompletado sin distinguir tildes ni mayúsculas.
+
+La base `site/data/moliner.libsql` funciona localmente con el driver `libsql`.
+Es un artefacto generado, ignorado por Git. Producción consulta la base Turso
+independiente, por lo que no incluye esos 96,7 MiB en el despliegue.
+Para usar una base remota independiente, completar `.env` en la raíz con
+`MOLINER_DATABASE_URL` y `MOLINER_AUTH_TOKEN`, y reiniciar la app. Hay una plantilla
+versionada en `.env.example`; `.env` queda excluido de git. Las variables del
+entorno tienen prioridad sobre el archivo. Las cuatro bases bilingües siguen
+siendo locales. En producción, configurar esas variables en el entorno del
+servicio, sin subir el archivo con credenciales.
+
+Para regenerar el XML compartido con el EPUB, las fuentes griegas y la base:
+
+```bash
+make build-moliner
+```
+
+Requiere el paquete DUE suministrado en este directorio y `openssl`. No ejecuta
+el instalador. El contrato de exportación y los detalles están en
+[docs/moliner.md](docs/moliner.md); la coordinación con el agente del EPUB está
+en [chat.md](chat.md) y el avance general en [session.md](session.md).
+
 ## Artefactos versionados
 
-El repo publica las cuatro bases SQLite listas para consulta web.
+Las bases listas para consulta web son:
 
 - `site/data/de-es-dictionary.sqlite`
 - `site/data/es-de-dictionary.sqlite`
@@ -238,6 +267,8 @@ Los JSON intermedios de extracción y limpieza siguen existiendo como parte del
 pipeline, pero quedan ignorados en git y se regeneran localmente cuando hace
 falta. Los PDB y APK originales son inputs locales propietarios y también están
 excluidos del repositorio.
+La base Moliner, su exportación XML y el EPUB también son artefactos locales
+regenerables; no se versionan ni se empaquetan para el sitio.
 
 ## Formatos y palabras clave
 

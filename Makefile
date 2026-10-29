@@ -26,13 +26,15 @@ EN_ES_SQLITE := $(DATA_DIR)/en-es-dictionary.sqlite
 ES_EN_PDB := $(ROOT_DIR)/SpanishEnglish.pdb
 ES_EN_SQLITE := $(DATA_DIR)/es-en-dictionary.sqlite
 
+MOLINER_SETUP := $(ROOT_DIR)/Diccionario de uso del español Maria Moliner (3ª-ED.)/Diccionario de uso del español - Maria Moliner (3ª ED.)/Setup
+
 .PHONY: \
 	all \
 	build-index build-raw build-json build-sqlite build-data \
 	build-index-de-es build-raw-de-es build-json-de-es build-sqlite-de-es build-data-de-es \
 	build-index-es-de build-raw-es-de build-json-es-de build-sqlite-es-de build-data-es-de \
 	build-sqlite-en-es build-data-en-es build-sqlite-es-en build-data-es-en build-pdb-data \
-	serve lock-fastapi clean
+	extract-moliner build-moliner serve lock-fastapi clean
 
 all: build-data
 
@@ -81,6 +83,12 @@ build-sqlite-es-en:
 build-data-es-en: build-sqlite-es-en
 
 build-pdb-data: build-data-en-es build-data-es-en
+
+extract-moliner:
+	$(PYTHON) $(TOOLS_DIR)/extract_moliner.py --fonts-from "$(MOLINER_SETUP)/DUE-3.0-linux-installer.bin"
+
+build-moliner: extract-moliner
+	$(PYTHON) $(TOOLS_DIR)/build_moliner_database.py
 
 serve:
 	cd "$(ROOT_DIR)" && uv run fastapi dev --host 127.0.0.1 --port 8001

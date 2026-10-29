@@ -8,6 +8,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from dictionary.moliner import load_articles
 from dictionary.search import (
     DICTIONARIES,
     PAGE_LIMIT,
@@ -16,13 +17,14 @@ from dictionary.search import (
     build_page_url,
     build_page_window,
     build_sense_anchor,
+    database_available,
     get_autocomplete_suggestions,
     get_dictionary,
     get_random_examples,
     load_stats,
     lookup_linkable_terms,
     normalize_for_search,
-    open_database,
+    open_dictionary_database,
     render_gloss_html,
     search_entries,
 )
@@ -75,15 +77,15 @@ def homepage(
     displayed_result_count = 0
     stats = {"entries": 0, "senses": 0}
 
-    if not dictionary.database_path.is_file():
+    if not database_available(dictionary):
         error = (
-            "No encuentro la base SQLite en "
+            "No encuentro la base de datos en "
             f"{dictionary.database_path}. Ejecutá el importador en Python antes "
             "de abrir el sitio."
         )
     else:
         try:
-            with closing(open_database(dictionary.database_path)) as connection:
+            with closing(open_dictionary_database(dictionary)) as connection:
                 stats = load_stats(connection)
                 if normalized_query:
                     search = search_entries(
@@ -105,6 +107,8 @@ def homepage(
                             page=page,
                         )
                     results = list(search["entries"])
+                    if dictionary.id == "moliner":
+                        load_articles(connection, results)
                     displayed_result_count = len(results)
         except Exception as exc:  # pragma: no cover - surface error in UI
             error = str(exc)
@@ -163,10 +167,10 @@ def autocomplete(
         return JSONResponse({"suggestions": []})
 
     dictionary = get_dictionary(dict)
-    if not dictionary.database_path.is_file():
+    if not database_available(dictionary):
         return JSONResponse({"suggestions": []}, status_code=503)
 
-    with closing(open_database(dictionary.database_path)) as connection:
+    with closing(open_dictionary_database(dictionary)) as connection:
         suggestions = get_autocomplete_suggestions(connection, normalized_query)
     return JSONResponse({"suggestions": suggestions})
 
@@ -179,7 +183,7 @@ def linkable_terms(
 ) -> JSONResponse:
     dictionary = get_dictionary(dict)
 
-    if not dictionary.database_path.is_file():
+    if not database_available(dictionary):
         return JSONResponse(
             {
                 "results": {},
@@ -188,6 +192,6 @@ def linkable_terms(
             status_code=503,
         )
 
-    with closing(open_database(dictionary.database_path)) as connection:
+    with closing(open_dictionary_database(dictionary)) as connection:
         payload = lookup_linkable_terms(connection, dictionary.id, terms)
     return JSONResponse({"results": payload})

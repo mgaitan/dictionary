@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import os
 import random
 import re
 import sqlite3
@@ -11,6 +12,8 @@ from typing import Any
 from urllib.parse import urlencode
 
 from markupsafe import Markup
+
+from dictionary.database import LibsqlDatabase
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "site" / "data"
@@ -366,6 +369,20 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
         ),
         hero_lead="",
     ),
+    "moliner": DictionaryConfig(
+        id="moliner",
+        database_path=Path(
+            os.environ.get("MOLINER_DATABASE_PATH") or DATA_DIR / "moliner.libsql"
+        ),
+        gloss_lookup_dictionary_id="moliner",
+        title="Uso del español (María Moliner)",
+        description="Diccionario de uso del español de María Moliner, tercera edición.",
+        direction_label="Uso del español (María Moliner)",
+        search_label="Palabra o expresión en español",
+        placeholder="Ej. casa, hacer, abacá",
+        examples=("casa", "hacer", "abacá", "libertad", "amanecer", "ñandú", "zurrón"),
+        hero_lead="Diccionario de uso del español · María Moliner · 3.ª edición",
+    ),
 }
 
 
@@ -406,6 +423,18 @@ def open_database(path: Path) -> sqlite3.Connection:
     connection = sqlite3.connect(path)
     connection.row_factory = sqlite3.Row
     return connection
+
+
+def database_available(dictionary: DictionaryConfig) -> bool:
+    return bool(
+        dictionary.id == "moliner" and os.environ.get("MOLINER_DATABASE_URL")
+    ) or dictionary.database_path.is_file()
+
+
+def open_dictionary_database(dictionary: DictionaryConfig):
+    if dictionary.id == "moliner":
+        return LibsqlDatabase(dictionary.database_path)
+    return open_database(dictionary.database_path)
 
 
 def load_stats(connection: sqlite3.Connection) -> dict[str, int]:
