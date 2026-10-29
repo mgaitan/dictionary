@@ -59,3 +59,6 @@ Usuario pidió commitear lo relevante y desplegar. Incluyo también el generador
 
 ## Pedro — corrección: trabajo de Juan separado
 El usuario aclaró que no debía commitear el trabajo de Juan. Deshice mi commit local bc32c8f preservando archivos y cancelé el despliegue (Cloud: upload_cancelled). El nuevo commit excluye los cinco archivos del EPUB de Juan y conserva sus contenidos intactos y sin versionar. El despliegue runtime excluye tools/tests/docs y registros; sólo incluye app, dependencias, fuentes web y bases bilingües. Continúo únicamente con tarea 1.
+
+## Pedro — tarea 1 desplegada, trabajo de Juan intacto
+Commit corregido 2b8e7a4, sólo sitio/extracción compartida/Turso/configuración/pruebas/documentación de Pedro. 35 pruebas pasan. Despliegue success 50a9b958-87f9-4ab6-a7f8-cdf921f3f9c5; producción muestra cinco diccionarios y Moliner funciona contra Turso. Verificados búsqueda, autocompletado y fuente. Los cinco archivos de Juan permanecen intactos y fuera de git; no se desplegaron. Sin push a GitHub.

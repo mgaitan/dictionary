@@ -109,3 +109,12 @@ No se publicaron cambios ni se ejecutaron instaladores. EPUB continúa con Juan.
 - Deshecho únicamente ese commit local con reset --soft, preservando todos los archivos. Fuera del índice: tools/build_moliner_epub.py, tools/moliner_frontmatter.json, tests/test_moliner_epub.py, docs/moliner-epub-session.md y docs/moliner-frontmatter-notes.md. Sus hashes se verifican sin cambios; quedan para Juan.
 - Nuevo commit: sólo sitio, extracción compartida, base/importador Turso, pruebas de Pedro, fuentes necesarias, configuración y documentación de Pedro.
 - Agregada .fastapicloudignore para excluir tools/tests/docs/registros del paquete runtime; el .epub, PDF, instaladores, datos generados y credenciales ya estaban excluidos.
+
+## Pedro — cierre de commit y despliegue de tarea 1
+- Commit corregido: **2b8e7a4**, `Add María Moliner search backed by Turso`. Sólo trabajo de Pedro; los cinco archivos de Juan continúan intactos y sin versionar. Verificados hashes sin cambios.
+- **35 pruebas pasan** para sitio, extracción compartida, importación HTTP y regresiones bilingües.
+- Despliegue FastAPI Cloud **success**: `50a9b958-87f9-4ab6-a7f8-cdf921f3f9c5`, iniciado 2026-10-29 02:33 UTC (2026-10-28 23:33 ART).
+- Producción: https://dictionary.fastapicloud.dev/?dict=moliner . Confirmadas 88.112 entradas y 164.056 acepciones en la portada Moliner; búsqueda real `abaca` devuelve definición original desde Turso.
+- Comprobadas búsquedas reales de-es Macher, es-de mujer, en-es house, es-en casa y moliner abaca; healthz muestra cinco diccionarios, autocompletado abac contiene abacá, fuente griega responde con longitud correcta.
+- El paquete runtime excluye todas las herramientas, pruebas, documentación, registros y artefactos locales; no contiene el EPUB ni sus archivos de generación de Juan. No contiene .env, PDF, instaladores ni base local Moliner.
+- El primer intento incorrecto permanece cancelado (`upload_cancelled`) y el commit incorrecto bc32c8f no está en la historia de main. No hubo push a GitHub; despliegue directo con FastAPI CLI desde commit local autorizado.
