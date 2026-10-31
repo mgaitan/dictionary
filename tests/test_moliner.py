@@ -93,7 +93,7 @@ def test_extraction_and_website(moliner):
     assert "Uso del español (María Moliner)" in page.text
     assert "*Planta tropical." in page.text and "Una tela." in page.text
     assert "(del tagalo)" in page.text
-    assert 'href="/?dict=moliner&amp;q=casa#moliner-DUE_30"' in page.text
+    assert 'href="/moliner/casa#moliner-DUE_30"' in page.text
     assert 'class="moliner-ejemplos"' in page.text
     assert 'id="moliner-DUE_17"' in page.text
     assert client.get(

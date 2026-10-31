@@ -6,6 +6,11 @@
 
   const dictInput = document.querySelector('select[name="dict"]');
   const getDictId = () => (dictInput ? dictInput.value : "de-es");
+  searchInput.form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const query = searchInput.value.trim();
+    window.location.href = `/${encodeURIComponent(getDictId())}${query ? `/${encodeURIComponent(query)}` : ""}`;
+  });
 
   // Inject dropdown list into the .search-box wrapper (positioned relative).
   const searchBox = searchInput.closest(".search-box");

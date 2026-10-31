@@ -5,7 +5,7 @@ from __future__ import annotations
 import html
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
-from urllib.parse import urlencode
+from urllib.parse import quote
 
 from markupsafe import Markup
 
@@ -62,8 +62,8 @@ def render_xml(node: ET.Element, targets: Mapping[str, str]) -> str:
     if node.tag == "REMISION" and target in targets:
         tag = "a"
         url = (
-            "/?"
-            + urlencode({"dict": "moliner", "q": targets[target]})
+            "/moliner/"
+            + quote(targets[target], safe="")
             + "#moliner-"
             + target
         )

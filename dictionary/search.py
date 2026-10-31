@@ -9,7 +9,7 @@ import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 from markupsafe import Markup
 
@@ -596,20 +596,12 @@ def build_page_window(page: int, total_pages: int, radius: int = 2) -> list[int]
 
 
 def build_page_url(dictionary_id: str, query: str, page: int) -> str:
-    return "/?" + urlencode(
-        {
-            "dict": dictionary_id,
-            "q": query,
-            "page": page,
-        }
-    )
+    url = build_dictionary_url(dictionary_id, query)
+    return url + ("?" + urlencode({"page": page}) if page > 1 else "")
 
 
 def build_dictionary_url(dictionary_id: str, query: str = "") -> str:
-    params: dict[str, str] = {"dict": dictionary_id}
-    if query:
-        params["q"] = query
-    return "/?" + urlencode(params)
+    return "/" + quote(dictionary_id, safe="") + ("/" + quote(query, safe="") if query else "")
 
 
 def build_sense_anchor(

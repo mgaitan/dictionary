@@ -112,7 +112,7 @@ flowchart LR
 
 ### 2. Consulta web
 
-La app FastAPI abre la SQLite correspondiente según el query param `dict`:
+La app FastAPI abre la SQLite correspondiente según la ruta `/diccionario/término`:
 
 - `de-es`
 - `es-de`
@@ -134,7 +134,7 @@ sequenceDiagram
     participant F as FastAPI
     participant S as SQLite
 
-    U->>F: GET /?dict=de-es&q=machen&page=1
+    U->>F: GET /de-es/machen
     F->>S: buscar entry_id en search_terms
     S-->>F: ids candidatos
     F->>S: traer entries + senses
@@ -267,7 +267,7 @@ también en deploy.
 
 ## María Moliner
 
-La pestaña **Uso del español (María Moliner)** está en `/?dict=moliner`.
+La pestaña **Uso del español (María Moliner)** está en `/moliner`.
 Incluye 88.112 entradas, 164.056 acepciones y búsqueda por lemas, variantes y
 expresiones, con autocompletado sin distinguir tildes ni mayúsculas.
 

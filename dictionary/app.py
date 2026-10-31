@@ -3,8 +3,8 @@ from __future__ import annotations
 from contextlib import closing
 from pathlib import Path
 
-from fastapi import Body, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -55,13 +55,20 @@ app = FastAPI(title="dictionary")
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
 
-@app.get("/", response_class=HTMLResponse)
+@app.get("/", response_class=HTMLResponse, response_model=None)
 def homepage(
     request: Request,
     dict: str | None = None,
     q: str = "",
     page: int = 1,
-) -> HTMLResponse:
+) -> HTMLResponse | RedirectResponse:
+    if (dict in DICTIONARIES or q.strip()) and ("dict" in request.query_params or "q" in request.query_params):
+        selected = get_dictionary(dict if dict in DICTIONARIES else request.cookies.get(DICTIONARY_COOKIE))
+        return RedirectResponse(build_page_url(selected.id, q.strip(), max(1, page)), status_code=302)
+    return render_homepage(request, dict, q, page)
+
+
+def render_homepage(request: Request, dict: str | None, q: str, page: int) -> HTMLResponse:
     selected_dictionary_id = dict if dict in DICTIONARIES else None
     saved_dictionary_id = request.cookies.get(DICTIONARY_COOKIE)
     dictionary = get_dictionary(selected_dictionary_id or saved_dictionary_id)
@@ -210,3 +217,11 @@ def linkable_terms(
     with closing(open_dictionary_database(dictionary)) as connection:
         payload = lookup_linkable_terms(connection, dictionary.id, terms)
     return JSONResponse({"results": payload})
+
+
+@app.get("/{dictionary_id}", response_class=HTMLResponse)
+@app.get("/{dictionary_id}/{term:path}", response_class=HTMLResponse)
+def dictionary_page(request: Request, dictionary_id: str, term: str = "", page: int = 1) -> HTMLResponse:
+    if dictionary_id not in DICTIONARIES:
+        raise HTTPException(status_code=404, detail="Diccionario no encontrado")
+    return render_homepage(request, dictionary_id, term, page)
