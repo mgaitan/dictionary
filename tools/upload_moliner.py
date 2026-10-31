@@ -175,7 +175,7 @@ def upload(source: Path, remote: SqlHttp, resume: bool = False) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--database", type=Path, default=ROOT / "site/data/moliner.libsql"
+        "--database", type=Path, default=ROOT / "site/data/moliner.sqlite"
     )
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()

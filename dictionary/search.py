@@ -13,7 +13,6 @@ from urllib.parse import urlencode
 
 from markupsafe import Markup
 
-from dictionary.database import LibsqlDatabase
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = ROOT / "site" / "data"
@@ -372,7 +371,7 @@ DICTIONARIES: dict[str, DictionaryConfig] = {
     "moliner": DictionaryConfig(
         id="moliner",
         database_path=Path(
-            os.environ.get("MOLINER_DATABASE_PATH") or DATA_DIR / "moliner.libsql"
+            os.environ.get("MOLINER_DATABASE_PATH") or DATA_DIR / "moliner.sqlite"
         ),
         gloss_lookup_dictionary_id="moliner",
         title="Uso del español (María Moliner)",
@@ -426,14 +425,10 @@ def open_database(path: Path) -> sqlite3.Connection:
 
 
 def database_available(dictionary: DictionaryConfig) -> bool:
-    return bool(
-        dictionary.id == "moliner" and os.environ.get("MOLINER_DATABASE_URL")
-    ) or dictionary.database_path.is_file()
+    return dictionary.database_path.is_file()
 
 
 def open_dictionary_database(dictionary: DictionaryConfig):
-    if dictionary.id == "moliner":
-        return LibsqlDatabase(dictionary.database_path)
     return open_database(dictionary.database_path)
 
 

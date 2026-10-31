@@ -1,7 +1,7 @@
 # María Moliner: extracción e integración
 
 La tercera pestaña consulta el Diccionario de uso del español de María Moliner
-(DUE 3.0 / 3.ª edición) en una base **libSQL independiente** de UniLex.
+(DUE 3.0 / 3.ª edición) en una base **SQLite independiente** de UniLex.
 
 ## Fuentes y procedencia
 
@@ -53,10 +53,10 @@ son necesarias para los fragmentos griegos codificados con `FUENTE face="detede"
 el sitio utiliza detede1, como las hojas XSL originales. La extracción de fuentes
 se puede invocar con `--fonts-from /ruta/DUE-3.0-linux-installer.bin`.
 
-## Base libSQL
+## Base SQLite
 
-`tools/build_moliner_database.py` usa el driver `libsql` para crear
-`site/data/moliner.libsql`, sin modificar las bases existentes. Contiene:
+`tools/build_moliner_database.py` usa `sqlite3` para crear
+`site/data/moliner.sqlite`, sin modificar las bases existentes. Contiene:
 
 | Tabla | Contenido |
 | --- | --- |
@@ -67,9 +67,7 @@ se puede invocar con `--fonts-from /ruta/DUE-3.0-linux-installer.bin`.
 | `xml_ids` | 110.401 destinos de remisiones: lemas y expresiones |
 | `metadata` | procedencia, contadores y SHA-256 del JSONL utilizado |
 
-La base local generada está ignorada por Git y se conserva para regeneración y
-uso local. El despliegue consulta Turso con las variables del servidor, sin
-empaquetar una segunda copia del archivo de 96,7 MiB.
+La base está versionada y se incluye en el despliegue para consultas locales.
 
 Los importadores escriben un archivo temporal y reemplazan el destino sólo al
 terminar. La base se verifica con `integrity_check` y `foreign_key_check`.
@@ -89,45 +87,13 @@ del buscador web.
 
 ## Configuración
 
-Sin variables adicionales, la pestaña utiliza libSQL local. Para otra ubicación:
+La aplicación utiliza SQLite local. Para indicar otra ubicación:
 
 ```bash
-export MOLINER_DATABASE_PATH=/ruta/moliner.libsql
+export MOLINER_DATABASE_PATH=/ruta/moliner.sqlite
 ```
 
-También se carga automáticamente `.env` desde la raíz del repositorio, antes
-de leer la configuración. Copiar `.env.example` a `.env` si todavía no existe,
-completar los valores y reiniciar el servidor. `.env` está ignorado por git;
-las variables ya definidas por el entorno tienen prioridad.
-
-Para una base libSQL remota ya importada con el mismo esquema:
-
-```bash
-export MOLINER_DATABASE_URL=libsql://nombre-organizacion.turso.io
-export MOLINER_AUTH_TOKEN='token-de-lectura'
-```
-
-La URL remota tiene prioridad sobre el archivo local. Las variables son del
-servidor y no se incluyen en HTML ni JavaScript. Se utiliza la conexión remota
-del [driver oficial de Python para libSQL](https://github.com/tursodatabase/turso-docs/blob/main/sdk/python/quickstart.mdx).
-La base local ya se importó y verificó en la base Turso indicada por `.env`:
-135 solicitudes HTTP en 363,2 segundos, incluidos índices, comprobaciones por
-tabla, integridad y claves foráneas. Para usarla en otro entorno, configurar
-esas mismas variables en el servidor.
-
-Para importar a la base indicada en `.env` sin una sesión administrativa de
-Turso CLI:
-
-```bash
-uv run tools/upload_moliner.py
-```
-
-Requiere un destino vacío y un token con permiso de escritura. Agrupa filas en
-inserciones de hasta aproximadamente 1 MB de SQL, reutiliza la conexión HTTP y
-crea índices al terminar la carga. Mantiene los rowids para poder reintentar
-sin duplicados; compara contadores, límites de IDs y longitudes por columna,
-y verifica integridad y claves foráneas. Ante un corte se puede continuar con
-`--resume`, que exige el mismo SHA-256 de origen. No borra tablas del destino.
+Las antiguas variables de conexión a Turso ya no afectan a la aplicación.
 
 ## Verificación
 
@@ -137,7 +103,7 @@ make serve
 ```
 
 Las pruebas cubren extracción de un archivo compuesto, preservación de XML,
-importación con libSQL, búsqueda sin tildes, expresiones, remisiones, autocompletado,
+importación con SQLite, búsqueda sin tildes, expresiones, remisiones, autocompletado,
 escape de contenido y recuperación ante archivos truncados o importaciones fallidas.
 La base completa se comprobó además con búsquedas reales de principio a fin
 del alfabeto. Los instaladores, PDF e intermedios se conservan localmente y están

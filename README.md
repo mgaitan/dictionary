@@ -4,7 +4,7 @@ Buscador web para diccionarios alemán-español e inglés-español en ambas
 direcciones y el **Diccionario de uso del español de María Moliner (3.ª edición)**.
 
 La app corre con FastAPI y usa SQLite para los diccionarios bilingües y una base
-libSQL independiente para María Moliner. Los datos se reconstruyen en Python
+SQLite independiente para María Moliner. Los datos se reconstruyen en Python
 desde los formatos originales de las aplicaciones.
 
 ## Qué hace el sitio
@@ -12,7 +12,7 @@ desde los formatos originales de las aplicaciones.
 - permite buscar por palabra fuente en cuatro direcciones
 - pagina resultados en el servidor
 - resalta abreviaturas gramaticales, marcas semánticas y etiquetas
-- trabaja sobre cuatro bases SQLite bilingües y una base libSQL de Moliner
+- trabaja sobre cuatro bases SQLite bilingües y una base SQLite de Moliner
 - conserva en Moliner etimologías, notas, ejemplos, expresiones y remisiones
 
 ## Estructura
@@ -233,15 +233,9 @@ La pestaña **Uso del español (María Moliner)** está en `/?dict=moliner`.
 Incluye 88.112 entradas, 164.056 acepciones y búsqueda por lemas, variantes y
 expresiones, con autocompletado sin distinguir tildes ni mayúsculas.
 
-La base `site/data/moliner.libsql` funciona localmente con el driver `libsql`.
-Es un artefacto generado, ignorado por Git. Producción consulta la base Turso
-independiente, por lo que no incluye esos 96,7 MiB en el despliegue.
-Para usar una base remota independiente, completar `.env` en la raíz con
-`MOLINER_DATABASE_URL` y `MOLINER_AUTH_TOKEN`, y reiniciar la app. Hay una plantilla
-versionada en `.env.example`; `.env` queda excluido de git. Las variables del
-entorno tienen prioridad sobre el archivo. Las cuatro bases bilingües siguen
-siendo locales. En producción, configurar esas variables en el entorno del
-servicio, sin subir el archivo con credenciales.
+La base `site/data/moliner.sqlite` está versionada y se incluye en el
+despliegue. La aplicación la consulta localmente con SQLite, sin depender de
+Turso. Se puede indicar otra ubicación con `MOLINER_DATABASE_PATH`.
 
 Para regenerar el XML compartido con el EPUB, las fuentes griegas y la base:
 

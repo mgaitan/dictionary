@@ -1,4 +1,4 @@
-"""Build the independent Moliner libSQL database from the lossless XML export."""
+"""Build the independent Moliner SQLite database from the lossless XML export."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import libsql
+import sqlite3
 
 from dictionary.moliner import plain_text
 from dictionary.search import normalize_for_search
@@ -48,7 +48,7 @@ def build_database(source: Path, output: Path) -> dict[str, int]:
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
     temporary.unlink(missing_ok=True)
-    db = libsql.connect(str(temporary))
+    db = sqlite3.connect(str(temporary))
     counts = {"entries": 0, "senses": 0, "search_terms": 0, "xml_ids": 0}
     try:
         db.executescript("""
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         "--source", type=Path, default=ROOT / "site/data/moliner-articles.jsonl"
     )
     parser.add_argument(
-        "--output", type=Path, default=ROOT / "site/data/moliner.libsql"
+        "--output", type=Path, default=ROOT / "site/data/moliner.sqlite"
     )
     args = parser.parse_args()
     print(build_database(args.source, args.output))

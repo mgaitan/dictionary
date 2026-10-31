@@ -72,7 +72,7 @@ def moliner(tmp_path, monkeypatch):
     write_cfs(source, articles)
     export = tmp_path / "articles.jsonl"
     assert export_articles(source, export) == 2
-    database = tmp_path / "moliner.libsql"
+    database = tmp_path / "moliner.sqlite"
     stats = build_database(export, database)
     assert stats["entries"] == 2 and stats["senses"] == 3
     monkeypatch.setitem(
@@ -179,28 +179,10 @@ def test_homonym_number_keeps_following_gender_suffix():
     assert ("actor, -a", "variant") in search_terms(root, "actor 1, -a")
 
 
-def test_remote_configuration_does_not_require_local_file(moliner, monkeypatch):
-    from dictionary import database as backend
-
-    client, _, database = moliner
-    native_connect = backend.libsql.connect
-    calls = []
-
-    def connect(url, **options):
-        calls.append((url, options))
-        return native_connect(str(database))
-
-    monkeypatch.setattr(backend.libsql, "connect", connect)
+def test_turso_configuration_does_not_override_local_database(moliner, monkeypatch):
+    client, _, _ = moliner
     monkeypatch.setenv("MOLINER_DATABASE_URL", "libsql://example.invalid")
     monkeypatch.setenv("MOLINER_AUTH_TOKEN", "test-token")
-    monkeypatch.setitem(
-        DICTIONARIES,
-        "moliner",
-        replace(
-            DICTIONARIES["moliner"], database_path=database.parent / "missing.libsql"
-        ),
-    )
     response = client.get("/?dict=moliner&q=abaca")
     assert "*Planta tropical." in response.text
     assert "test-token" not in response.text
-    assert calls == [("libsql://example.invalid", {"auth_token": "test-token"})]
