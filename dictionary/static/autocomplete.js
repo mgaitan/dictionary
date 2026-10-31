@@ -4,7 +4,7 @@
     return;
   }
 
-  const dictInput = document.querySelector('input[name="dict"]');
+  const dictInput = document.querySelector('select[name="dict"]');
   const getDictId = () => (dictInput ? dictInput.value : "de-es");
 
   // Inject dropdown list into the .search-box wrapper (positioned relative).
@@ -26,11 +26,33 @@
   searchInput.setAttribute("aria-controls", "autocomplete-list");
   searchInput.setAttribute("aria-expanded", "false");
 
+  const reverse = document.querySelector(".reverse-direction");
+  const inverses = {"en-es": "es-en", "es-en": "en-es", "de-es": "es-de", "es-de": "de-es"};
+  dictInput.addEventListener("change", () => searchInput.form.requestSubmit());
+  reverse.addEventListener("click", () => {
+    dictInput.value = inverses[dictInput.value];
+    searchInput.form.requestSubmit();
+  });
+  document.querySelector(".clear-search").addEventListener("click", () => {
+    searchInput.value = "";
+    clearDropdown();
+    searchInput.focus();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "/" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.target.closest("input, textarea, select, [contenteditable]")) {
+      event.preventDefault();
+      searchInput.focus();
+    }
+  });
+
   let debounceTimer = null;
+  let requestId = 0;
   let currentSuggestions = [];
   let activeIndex = -1;
 
   function clearDropdown() {
+    requestId++;
+    clearTimeout(debounceTimer);
     dropdown.hidden = true;
     dropdown.innerHTML = "";
     searchInput.setAttribute("aria-expanded", "false");
@@ -96,6 +118,8 @@
       clearDropdown();
       return;
     }
+    const id = ++requestId;
+    const dict = getDictId();
     fetch(
       `/api/autocomplete?dict=${encodeURIComponent(getDictId())}&q=${encodeURIComponent(q)}`,
     )
@@ -107,24 +131,30 @@
         return response.json();
       })
       .then((data) => {
-        renderSuggestions(data.suggestions || []);
+        if (id === requestId && searchInput.value.trim() === q && getDictId() === dict && document.activeElement === searchInput) {
+          renderSuggestions((data.suggestions || []).slice(0, 5));
+        }
       })
       .catch(() => {
-        clearDropdown();
+        if (id === requestId) clearDropdown();
       });
   }
 
   searchInput.addEventListener("input", () => {
-    clearTimeout(debounceTimer);
+    clearDropdown();
     debounceTimer = setTimeout(() => {
       fetchSuggestions(searchInput.value);
     }, 200);
   });
 
   searchInput.addEventListener("keydown", (e) => {
-    if (dropdown.hidden) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      if (dropdown.hidden) searchInput.value = "";
+      clearDropdown();
       return;
     }
+    if (dropdown.hidden) return;
     const count = currentSuggestions.length;
     if (e.key === "ArrowDown") {
       e.preventDefault();

@@ -16,83 +16,28 @@
     </head>
     <body>
         <main class="shell">
-            <section class="hero">
-                <div
-                    class="dictionary-switcher"
-                    aria-label="Diccionarios"
-                >
-                    {% for id, item in dictionaries.items() %} {% if id ==
-                    dictionary_id %}
-                    <span class="dictionary-link current"
-                        >{{ item.direction_label }}</span
-                    >
-                    {% else %}
-                    <a
-                        class="dictionary-link"
-                        href="{{ build_dictionary_url(id, query) }}"
-                        >{{ item.direction_label }}</a
-                    >
-                    {% endif %} {% endfor %}
-                </div>
-                {% if dictionary.hero_lead %}
-                <p class="lede">{{ dictionary.hero_lead }}</p>
-                {% endif %}
-            </section>
-
-            <section class="panel controls" aria-label="Controles de búsqueda">
+            <section class="controls" aria-label="Controles de búsqueda">
                 <form class="search-form" method="get" action="/">
-                    <input
-                        type="hidden"
-                        name="dict"
-                        value="{{ dictionary_id }}"
-                    />
+                    <button class="search-submit" type="submit" aria-label="Buscar">⌕</button>
                     <div class="search-box">
-                        <label for="search-input"
-                            >{{ dictionary.search_label }}</label
-                        >
-                        <input
-                            id="search-input"
-                            name="q"
-                            type="search"
-                            placeholder="{{ random_placeholder }}"
-                            autocomplete="off"
-                            spellcheck="false"
-                            value="{{ query }}"
-                        />
+                        <label class="visually-hidden" for="search-input">{{ dictionary.search_label }}</label>
+                        <input id="search-input" name="q" type="search" placeholder="Buscar una palabra" autocomplete="off" spellcheck="false" value="{{ query }}" />
                     </div>
-
-                    <div class="actions">
-                        <button type="submit">Buscar</button>
-                        <a
-                            class="file-button"
-                            href="{{ build_dictionary_url(dictionary_id) }}"
-                            >Limpiar</a
-                        >
-                    </div>
+                    <button class="clear-search" type="button" aria-label="Limpiar búsqueda">×</button>
+                    <label class="visually-hidden" for="dictionary-select">Diccionario</label>
+                    <select id="dictionary-select" name="dict">
+                        {% for id, item in dictionaries.items() %}
+                        <option value="{{ id }}" {% if id == dictionary_id %}selected{% endif %}>{{ item.direction_label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button class="reverse-direction" type="button" aria-label="Invertir dirección" title="Invertir dirección" {% if dictionary_id == 'moliner' %}hidden{% endif %}>⇄</button>
+                    <noscript><button type="submit">Ir</button></noscript>
                 </form>
-
-                <p class="status" role="status" aria-live="polite">
-                    {% if error %} {{ error }} {% elif not normalized_query %}
-                    {{ dictionary.direction_label }}: {{
-                    "{:,}".format(stats.entries).replace(",", ".") }} entradas y
-                    {{ "{:,}".format(stats.senses).replace(",", ".") }}
-                    acepciones listas para consultar. {% else %} {{
-                    "{:,}".format(displayed_result_count).replace(",", ".") }}
-                    resultado{% if displayed_result_count != 1 %}s{% endif %}
-                    visible{% if displayed_result_count != 1 %}s{% endif %} para
-                    “{{ query }}”. {% endif %}
-                </p>
             </section>
+            {% if error %}<p class="status" role="alert">{{ error }}</p>{% endif %}
 
             <section class="panel results-panel" aria-label="Resultados">
-                <div class="results-meta">
-                    <p id="result-count">
-                        {% if not normalized_query %} Escribí una palabra para
-                        empezar {% else %} Página {{ page }} de {{ total_pages
-                        if total_pages > 0 else 1 }} {% endif %}
-                    </p>
-                </div>
-
+                {% if normalized_query %}<p class="page-info">Página {{ page }} de {{ total_pages if total_pages > 0 else 1 }}</p>{% endif %}
                 <div class="results">
                     {% if error %}
                     <div class="empty-state">
@@ -207,6 +152,22 @@
                     {% endif %} {% endif %}
                 </div>
             </section>
+            <footer>
+                <details>
+                    <summary>Acerca de este diccionario</summary>
+                    {% if dictionary_id == 'moliner' %}
+                    <p>Basado en el <em>Diccionario de uso del español</em> de María Moliner · 3.ª edición digital · versión 3.0 (2009).</p>
+                    {% elif dictionary_id == 'en-es' %}
+                    <p>Basado en el <em>Oxford English-Spanish</em>, edición digital MSDict.</p>
+                    {% elif dictionary_id == 'es-en' %}
+                    <p>Basado en el <em>Oxford Spanish-English</em>, edición digital MSDict.</p>
+                    {% else %}
+                    <p>Basado en el <em>Diccionario de las lenguas española y alemana</em> de Slabý y Grossmann · edición digital UniLex de Brandstetter.</p>
+                    {% endif %}
+                    <p>{{ "{:,}".format(stats.entries).replace(",", ".") }} entradas · {{ "{:,}".format(stats.senses).replace(",", ".") }} acepciones</p>
+                </details>
+                <p><a href="https://github.com/mgaitan/dictionary">Repositorio en GitHub</a></p>
+            </footer>
         </main>
     </body>
 </html>
