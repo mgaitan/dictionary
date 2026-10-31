@@ -256,6 +256,18 @@ class DictionaryConfig:
 
 
 DICTIONARIES: dict[str, DictionaryConfig] = {
+    "damer": DictionaryConfig(
+        id="damer",
+        database_path=DATA_DIR / "damer-cache.sqlite",
+        gloss_lookup_dictionary_id="damer",
+        title="Diccionario de americanismos",
+        description="Diccionario de americanismos de ASALE.",
+        direction_label="Americanismos (ASALE)",
+        search_label="Palabra o expresión en español",
+        placeholder="Ej. mate, guagua, chamba",
+        examples=("mate", "guagua", "chamba", "ñandú", "che"),
+        hero_lead="Diccionario de americanismos · ASALE",
+    ),
     "de-es": DictionaryConfig(
         id="de-es",
         database_path=DATA_DIR / "de-es-dictionary.sqlite",

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from dictionary.moliner import load_articles
+from dictionary import damer
 from dictionary.search import (
     DICTIONARIES,
     PAGE_LIMIT,
@@ -77,7 +78,16 @@ def homepage(
     displayed_result_count = 0
     stats = {"entries": 0, "senses": 0}
 
-    if not database_available(dictionary):
+    if dictionary.id == "damer":
+        if query:
+            try:
+                article = damer.get_article(query)
+                if article:
+                    results = [{"headword": query, "damer_entries": damer.decode_article(article)["entries"]}]
+                    total_results = total_pages = displayed_result_count = 1
+            except Exception:
+                error = "No se pudo consultar el Diccionario de americanismos. Intentá nuevamente."
+    elif not database_available(dictionary):
         error = (
             "No encuentro la base de datos en "
             f"{dictionary.database_path}. Ejecutá el importador en Python antes "
@@ -167,6 +177,8 @@ def autocomplete(
         return JSONResponse({"suggestions": []})
 
     dictionary = get_dictionary(dict)
+    if dictionary.id == "damer":
+        return JSONResponse({"suggestions": damer.suggestions(query)})
     if not database_available(dictionary):
         return JSONResponse({"suggestions": []}, status_code=503)
 
@@ -182,6 +194,9 @@ def linkable_terms(
     terms: list[str] = Body(default=[]),
 ) -> JSONResponse:
     dictionary = get_dictionary(dict)
+
+    if dictionary.id == "damer":
+        return JSONResponse({"results": {}})
 
     if not database_available(dictionary):
         return JSONResponse(

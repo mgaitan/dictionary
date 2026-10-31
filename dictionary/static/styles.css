@@ -143,3 +143,7 @@ footer summary { cursor: pointer; }
 }
 .sense-list:has(> .sense-item:only-child) { list-style: none; padding-left: 0; }
 .sense-permalink, .gloss-permalink { position: absolute; right: 100%; padding-right: .4rem; }
+.damer-row {
+  margin: 0.5rem 0;
+  line-height: 1.55;
+}

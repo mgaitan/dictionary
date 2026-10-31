@@ -30,7 +30,7 @@
                         <option value="{{ id }}" {% if id == dictionary_id %}selected{% endif %}>{{ item.direction_label }}</option>
                         {% endfor %}
                     </select>
-                    <button class="reverse-direction" type="button" aria-label="Invertir dirección" title="Invertir dirección" {% if dictionary_id == 'moliner' %}hidden{% endif %}>⇄</button>
+                    <button class="reverse-direction" type="button" aria-label="Invertir dirección" title="Invertir dirección" {% if dictionary_id in ['moliner', 'damer'] %}hidden{% endif %}>⇄</button>
                     <noscript><button type="submit">Ir</button></noscript>
                 </form>
             </section>
@@ -66,7 +66,15 @@
                             </div>
                         </header>
 
-                        {% if dictionary_id == 'moliner' %}
+                        {% if dictionary_id == 'damer' %}
+                        {% for article in entry.damer_entries %}
+                        <div class="damer-article">
+                            {% for row in article.rows %}
+                            <p class="damer-row">{% for cell in row %}{% if cell %}<span>{{ cell }}</span>{% if not loop.last %} {% endif %}{% endif %}{% endfor %}</p>
+                            {% endfor %}
+                        </div>
+                        {% endfor %}
+                        {% elif dictionary_id == 'moliner' %}
                         <div class="moliner-article">{{ entry.article_html }}</div>
                         {% else %}
                         <ol class="sense-list">
@@ -155,7 +163,9 @@
             <footer>
                 <details>
                     <summary>Acerca de este diccionario</summary>
-                    {% if dictionary_id == 'moliner' %}
+                    {% if dictionary_id == 'damer' %}
+                    <p>Basado en el <a href="https://www.asale.org/damer/">Diccionario de americanismos</a> · ASALE.</p>
+                    {% elif dictionary_id == 'moliner' %}
                     <p>Basado en el <em>Diccionario de uso del español</em> de María Moliner · 3.ª edición digital · versión 3.0 (2009).</p>
                     {% elif dictionary_id == 'en-es' %}
                     <p>Basado en el <em>Oxford English-Spanish</em>, edición digital MSDict.</p>
@@ -164,9 +174,9 @@
                     {% else %}
                     <p>Basado en el <em>Diccionario de las lenguas española y alemana</em> de Slabý y Grossmann · edición digital UniLex de Brandstetter.</p>
                     {% endif %}
-                    <p>{{ "{:,}".format(stats.entries).replace(",", ".") }} entradas · {{ "{:,}".format(stats.senses).replace(",", ".") }} acepciones</p>
+                    {% if dictionary_id != 'damer' %}<p>{{ "{:,}".format(stats.entries).replace(",", ".") }} entradas · {{ "{:,}".format(stats.senses).replace(",", ".") }} acepciones</p>{% endif %}
+                    <p><a href="https://github.com/mgaitan/dictionary">Repositorio en GitHub</a></p>
                 </details>
-                <p><a href="https://github.com/mgaitan/dictionary">Repositorio en GitHub</a></p>
             </footer>
         </main>
     </body>

@@ -41,6 +41,44 @@ tools/
 
 ## Cómo funciona
 
+### Descarga experimental del Diccionario de americanismos
+
+La aplicación consulta el artículo primero en `site/data/damer-cache.sqlite`,
+después en Turso y, si falta en ambos, en ASALE. El artículo obtenido se convierte
+en filas de texto estructuradas y se guarda en Turso para las próximas consultas.
+Configurá `DAMER_DATABASE_URL` y
+`DAMER_AUTH_TOKEN` en `.env`. Para descargar periódicamente la caché de Turso
+a una copia SQLite local, ejecutá desde la raíz:
+
+```bash
+uv run python -m tools.sync_damer_cache
+```
+
+La copia se reemplaza únicamente después de terminar y verificar la descarga.
+El índice local `site/data/damer-keys-verified.sqlite` habilita sugerencias;
+no es necesario para buscar una palabra exacta. ASALE conserva los derechos
+del contenido. La espera entre consultas a ASALE es de cinco segundos por
+proceso; con varios procesos se necesita coordinación adicional.
+
+Para descubrir claves con saltos en la rueda alfabética:
+
+```bash
+uv run python tools/discover_damer_parallel.py --workers 4
+```
+
+Recorre seis tramos en paralelo, guarda claves y progreso en
+`site/data/damer-keys.sqlite` y permite reanudar. Esta etapa no introduce
+pausa entre consultas, aunque ASALE publica un `Crawl-delay` de 5 segundos.
+El índice todavía no alimenta la descarga de artículos.
+
+`uv run python tools/scrape_damer.py --limit 10` descarga una muestra en
+`site/data/damer-raw.sqlite`; sin `--limit` continúa hasta completar la rueda
+alfabética. Puede interrumpirse y retomarse con el mismo comando. Se guardan
+los artículos HTML originales y el siguiente lema, todavía sin incorporarlos
+al buscador. El servidor pide cinco segundos entre consultas, por lo que la
+descarga completa puede tardar varios días. El contenido pertenece a ASALE;
+verificá sus condiciones antes de redistribuirlo.
+
 ### 1. Build de datos
 
 La web no lee `IDO` ni `LEO` directamente. Antes se genera una base SQLite por

@@ -15,6 +15,10 @@ site/data/*.json
 *.pdb
 site/data/*.jsonl
 site/data/*.tmp
+site/data/damer-raw.sqlite*
+site/data/damer-keys.sqlite*
+site/data/damer-keys-verified.sqlite*
+site/data/damer-cache.sqlite*
 site/data/moliner.libsql*
 site/data/moliner-epub/
 .cache/
