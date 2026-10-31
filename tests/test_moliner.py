@@ -14,6 +14,7 @@ from dictionary.app import app
 from dictionary.moliner import render_article
 from dictionary.search import DICTIONARIES
 from tools.build_moliner_database import build_database, search_terms
+from tools.build_moliner_variants import build as build_variants
 from tools.extract_moliner import Reader, decrypt_cfs, export_articles
 
 
@@ -177,6 +178,26 @@ def test_homonym_number_keeps_following_gender_suffix():
         '<ENTRADA><VOZ><LEMA>actor<FUENTE sup="1">1</FUENTE>, -a</LEMA></VOZ></ENTRADA>'
     )
     assert ("actor, -a", "variant") in search_terms(root, "actor 1, -a")
+
+
+def test_gender_forms_are_indexed_for_existing_database(tmp_path, monkeypatch):
+    import sqlite3
+    import dictionary.search as search
+
+    source = tmp_path / "articles.jsonl"
+    xml = '<ENTRADA id-entrada="1"><VOZ><LEMA>umbelífero, -a</LEMA></VOZ><ACEPCIONES><ACEPCION>Planta de flores en umbela.</ACEPCION></ACEPCIONES></ENTRADA>'
+    source.write_text(json.dumps({"id": 1, "headword": "umbelífero, -a", "entry_xml": xml}) + "\n")
+    database = tmp_path / "moliner.sqlite"
+    build_database(source, database)
+    with sqlite3.connect(database) as db:
+        db.execute("DELETE FROM search_terms WHERE term IN ('umbelífero', 'umbelífera')")
+    assert build_variants(database, tmp_path / "moliner-variants.sqlite") == 2
+    monkeypatch.setattr(search, "DATA_DIR", tmp_path)
+    monkeypatch.setitem(DICTIONARIES, "moliner", replace(DICTIONARIES["moliner"], database_path=database))
+    client = TestClient(app)
+    for word in ("umbelífero", "umbelífera"):
+        assert "Planta de flores en umbela" in client.get(f"/moliner/{word}").text
+        assert "umbelífero, -a" in client.get("/api/autocomplete", params={"dict": "moliner", "q": word}).json()["suggestions"]
 
 
 def test_turso_configuration_does_not_override_local_database(moliner, monkeypatch):

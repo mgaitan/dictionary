@@ -268,6 +268,9 @@ también en deploy.
 ## María Moliner
 
 La pestaña **Uso del español (María Moliner)** está en `/moliner`.
+Para regenerar el índice adicional de formas como `umbelífero, -a`, ejecutá
+`uv run python -m tools.build_moliner_variants`. El índice se usa únicamente
+cuando coincide con la versión de la base de Moliner.
 Incluye 88.112 entradas, 164.056 acepciones y búsqueda por lemas, variantes y
 expresiones, con autocompletado sin distinguir tildes ni mayúsculas.
 

@@ -431,7 +431,7 @@ def slugify_fragment(value: str) -> str:
 
 
 def open_database(path: Path) -> sqlite3.Connection:
-    connection = sqlite3.connect(path)
+    connection = sqlite3.connect(path, uri=True)
     connection.row_factory = sqlite3.Row
     return connection
 
@@ -441,7 +441,15 @@ def database_available(dictionary: DictionaryConfig) -> bool:
 
 
 def open_dictionary_database(dictionary: DictionaryConfig):
-    return open_database(dictionary.database_path)
+    connection = open_database(dictionary.database_path)
+    variants = DATA_DIR / "moliner-variants.sqlite"
+    if dictionary.id == "moliner" and dictionary.database_path == DATA_DIR / "moliner.sqlite" and variants.is_file():
+        connection.execute("ATTACH DATABASE ? AS moliner_variants", (f"{variants.resolve().as_uri()}?mode=ro",))
+        source = connection.execute("SELECT value FROM main.metadata WHERE key = 'source_sha256'").fetchone()
+        variant_source = connection.execute("SELECT value FROM moliner_variants.metadata WHERE key = 'source_sha256'").fetchone()
+        if source and variant_source and source[0] == variant_source[0]:
+            connection.execute("CREATE TEMP VIEW search_terms AS SELECT * FROM main.search_terms UNION ALL SELECT * FROM moliner_variants.search_terms")
+    return connection
 
 
 def load_stats(connection: sqlite3.Connection) -> dict[str, int]:
@@ -457,9 +465,16 @@ def get_autocomplete_suggestions(
     connection: sqlite3.Connection,
     normalized_query: str,
     limit: int = AUTOCOMPLETE_LIMIT,
+    include_variants: bool = False,
 ) -> list[str]:
     """Return headwords that start with the given prefix, sorted alphabetically."""
     prefix = normalized_query + "%"
+    if include_variants:
+        rows = connection.execute(
+            "SELECT DISTINCT e.headword FROM search_terms st JOIN entries e ON e.id = st.entry_id WHERE st.normalized_term LIKE ? ORDER BY e.headword LIMIT ?",
+            (prefix, limit),
+        ).fetchall()
+        return [str(row["headword"]) for row in rows]
     rows = connection.execute(
         """
         SELECT headword

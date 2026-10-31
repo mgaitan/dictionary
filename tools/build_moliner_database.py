@@ -11,7 +11,7 @@ from pathlib import Path
 
 import sqlite3
 
-from dictionary.moliner import plain_text
+from dictionary.moliner import gender_variants, plain_text
 from dictionary.search import normalize_for_search
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,6 +29,7 @@ def search_terms(root: ET.Element, headword: str) -> list[tuple[str, str]]:
         ]
     ).strip()
     terms = {(headword, "headword"), (base, "variant")}
+    terms.update((term, "variant") for term in gender_variants(base))
     for node in root.iter():
         if node.tag in {"LEXIA", "VARIANTE-LEMA", "LEMA-2"}:
             term = plain_text(node)

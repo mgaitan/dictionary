@@ -190,7 +190,7 @@ def autocomplete(
         return JSONResponse({"suggestions": []}, status_code=503)
 
     with closing(open_dictionary_database(dictionary)) as connection:
-        suggestions = get_autocomplete_suggestions(connection, normalized_query)
+        suggestions = get_autocomplete_suggestions(connection, normalized_query, include_variants=dictionary.id == "moliner")
     return JSONResponse({"suggestions": suggestions})
 
 

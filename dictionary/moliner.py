@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import html
+import re
 import xml.etree.ElementTree as ET
 from collections.abc import Mapping
 from urllib.parse import quote
 
 from markupsafe import Markup
+
+
+def gender_variants(headword: str) -> list[str]:
+    match = re.fullmatch(r"([^\W\d_]+o)(?:\s+\d+)?,\s*-a", headword.strip(), re.UNICODE | re.IGNORECASE)
+    if not match:
+        return []
+    masculine = match.group(1)
+    return [masculine, masculine[:-1] + "a"]
 
 BLOCK_TAGS = {
     "ENTRADA": "div",
